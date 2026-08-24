@@ -24,7 +24,7 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
 Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`.
 
-Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App.
+Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
 
 Fuer den Schalter `Bildtexte per VLM` einmal ausfuehren:
 

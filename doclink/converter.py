@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -307,6 +308,7 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
     if options.ocr_engine == "tesseract_cli":
         from docling.datamodel.pipeline_options import TesseractCliOcrOptions
 
+        _ensure_tesseract_available()
         kwargs: dict[str, object] = {"mode": mode, "lang": list(options.tesseract_langs), "scale": scale}
         tesseract_cmd = os.getenv("TESSERACT_CMD")
         if tesseract_cmd:
@@ -316,6 +318,11 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
     if options.ocr_engine == "easyocr":
         from docling.datamodel.pipeline_options import EasyOcrOptions
 
+        try:
+            import easyocr  # noqa: F401
+        except ImportError as exc:
+            raise MissingDependencyError("EasyOCR is missing; run install_windows.bat again.") from exc
+
         return EasyOcrOptions(mode=mode, lang=list(options.easyocr_langs), scale=scale)
 
     if options.ocr_engine == "rapidocr":
@@ -324,6 +331,20 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
         return RapidOcrOptions(mode=mode, lang=[options.ocr_lang], scale=scale)
 
     raise MissingDependencyError(f"Unknown OCR engine: {options.ocr_engine}")
+
+
+def _ensure_tesseract_available() -> None:
+    tesseract_cmd = os.getenv("TESSERACT_CMD") or shutil.which("tesseract")
+    if not tesseract_cmd:
+        raise MissingDependencyError(
+            "Tesseract was not found. Install Tesseract OCR for Windows and make sure tesseract.exe is in PATH, "
+            "or set TESSERACT_CMD to the full path."
+        )
+
+    try:
+        subprocess.run([tesseract_cmd, "--version"], capture_output=True, text=True, timeout=10, check=True)
+    except Exception as exc:
+        raise MissingDependencyError(f"Tesseract could not be started: {tesseract_cmd}") from exc
 
 
 def _ocr_mode(value: str, enum_cls):

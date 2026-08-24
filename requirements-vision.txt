@@ -1,2 +1,1 @@
 docling[vlm]>=2.44.0
-easyocr>=1.7.2
