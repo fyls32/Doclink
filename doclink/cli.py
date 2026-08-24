@@ -78,7 +78,7 @@ def main() -> int:
     parser.add_argument(
         "--docstrange-processing",
         choices=("local_cpu", "local_gpu"),
-        default="local_cpu",
+        default="local_gpu",
         help="Run DocStrange locally on CPU or GPU",
     )
     parser.add_argument(

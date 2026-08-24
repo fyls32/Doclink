@@ -97,15 +97,15 @@ Der Modus `docstrange` nutzt die lokale DocStrange-Python-Bibliothek. Installier
 install_docstrange_windows.bat
 ```
 
-Doclink nutzt DocStrange nur lokal mit `local_cpu` oder `local_gpu`; es wird kein Cloud-Modus und kein API-Key verwendet. Empfohlener Start fuer deine Steuer-/Tabellenscans:
+Doclink nutzt DocStrange nur lokal; es wird kein Cloud-Modus und kein API-Key verwendet. Die aktuelle DocStrange-Python-Bibliothek bietet lokalen Modus vor allem ueber `local_gpu`/CUDA an. `local_cpu` bleibt als Option fuer Versionen sichtbar, die `cpu=True` wirklich unterstuetzen; sonst zeigt Doclink eine klare Fehlermeldung statt Cloud zu verwenden. Empfohlener Start fuer deine Steuer-/Tabellenscans:
 
 ```text
 Markdown-Modus: docstrange
-DocStrange lokal: local_cpu
+DocStrange lokal: local_gpu
 DocStrange Ausgabe: html
 ```
 
-Wenn deine CUDA-Installation funktioniert, kannst du `local_gpu` testen. Die erzeugte Datei bleibt eine `.md`; bei Ausgabe `html` liegt der DocStrange-HTML-Inhalt innerhalb dieser Markdown-Datei.
+Die erzeugte Datei bleibt eine `.md`; bei Ausgabe `html` liegt der DocStrange-HTML-Inhalt innerhalb dieser Markdown-Datei.
 
 Auf Windows setzt Doclink automatisch `HF_HUB_DISABLE_SYMLINKS=1`, damit Hugging Face Modell-Dateien kopiert statt Symlinks anzulegen. Das vermeidet `WinError 1314`, kann aber mehr Speicherplatz im Modellcache brauchen.
 
@@ -160,7 +160,7 @@ MinerU per CLI:
 DocStrange lokal per CLI:
 
 ```bat
-.venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine docstrange --docstrange-processing local_cpu --docstrange-output html
+.venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine docstrange --docstrange-processing local_gpu --docstrange-output html
 ```
 
 Ohne `-o` schreibt Doclink in `doclink_mds`.

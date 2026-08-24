@@ -58,7 +58,7 @@ class DoclinkApp(tk.Tk):
         self.mineru_formula_var = tk.BooleanVar(value=True)
         self.mineru_image_analysis_var = tk.BooleanVar(value=False)
         self.mineru_api_url_var = tk.StringVar(value="")
-        self.docstrange_processing_var = tk.StringVar(value="local_cpu")
+        self.docstrange_processing_var = tk.StringVar(value="local_gpu")
         self.docstrange_output_var = tk.StringVar(value="html")
         self.status_var = tk.StringVar(value="Bereit")
         self.progress_var = tk.IntVar(value=0)

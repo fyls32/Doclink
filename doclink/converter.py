@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import csv
 import html
+import inspect
 import json
 import mimetypes
 import os
@@ -681,13 +682,7 @@ def _docstrange_to_markdown(path: Path, options: ConversionOptions) -> str:
     except ImportError as exc:
         raise MissingDependencyError("DocStrange is missing; run install_docstrange_windows.bat first.") from exc
 
-    kwargs: dict[str, object] = {}
-    if options.docstrange_processing == "local_gpu":
-        kwargs["gpu"] = True
-    else:
-        kwargs["cpu"] = True
-
-    extractor = DocumentExtractor(**kwargs)
+    extractor = _docstrange_local_extractor(DocumentExtractor, options)
     try:
         result = extractor.extract(str(path))
     except Exception as exc:
@@ -705,6 +700,26 @@ def _docstrange_to_markdown(path: Path, options: ConversionOptions) -> str:
         data = _docstrange_extract_data(result)
         return f"```json\n{json.dumps(data, indent=2, ensure_ascii=False)}\n```"
     return _call_docstrange_result(result, "extract_markdown")
+
+
+def _docstrange_local_extractor(document_extractor_cls, options: ConversionOptions):
+    try:
+        parameters = inspect.signature(document_extractor_cls).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+
+    if options.docstrange_processing == "local_gpu":
+        if "gpu" not in parameters:
+            raise MissingDependencyError("This DocStrange version does not expose local GPU mode in its Python API.")
+        return document_extractor_cls(gpu=True)
+
+    if "cpu" in parameters:
+        return document_extractor_cls(cpu=True)
+
+    raise MissingDependencyError(
+        "This DocStrange version does not support local CPU mode in its Python API. "
+        "DocStrange local mode currently requires local_gpu/CUDA, otherwise it would use cloud processing."
+    )
 
 
 def _call_docstrange_result(result, method_name: str) -> str:
