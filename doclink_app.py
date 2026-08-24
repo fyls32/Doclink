@@ -38,6 +38,13 @@ class DoclinkApp(tk.Tk):
         self.lmstudio_base_url_var = tk.StringVar(value="http://localhost:1234/v1")
         self.lmstudio_model_var = tk.StringVar(value="")
         self.lmstudio_max_tokens_var = tk.StringVar(value="4096")
+        self.mineru_backend_var = tk.StringVar(value="pipeline")
+        self.mineru_method_var = tk.StringVar(value="auto")
+        self.mineru_lang_var = tk.StringVar(value="")
+        self.mineru_table_var = tk.BooleanVar(value=True)
+        self.mineru_formula_var = tk.BooleanVar(value=True)
+        self.mineru_image_analysis_var = tk.BooleanVar(value=False)
+        self.mineru_api_url_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Bereit")
         self.progress_var = tk.IntVar(value=0)
 
@@ -92,7 +99,7 @@ class DoclinkApp(tk.Tk):
             docling_options,
             textvariable=self.markdown_engine_var,
             state="readonly",
-            values=("docling", "lmstudio"),
+            values=("docling", "lmstudio", "mineru"),
             width=16,
         )
         markdown_engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
@@ -161,6 +168,32 @@ class DoclinkApp(tk.Tk):
         ttk.Entry(docling_options, textvariable=self.lmstudio_model_var).grid(row=5, column=2, columnspan=2, sticky="ew", padx=(0, 10))
         ttk.Label(docling_options, text="Max Tokens").grid(row=4, column=4, sticky="w", pady=(10, 4))
         ttk.Entry(docling_options, textvariable=self.lmstudio_max_tokens_var, width=10).grid(row=5, column=4, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="MinerU Backend").grid(row=6, column=0, sticky="w", pady=(10, 4))
+        mineru_backend = ttk.Combobox(
+            docling_options,
+            textvariable=self.mineru_backend_var,
+            state="readonly",
+            values=("pipeline", "hybrid-engine", "vlm-engine", "hybrid-http-client", "vlm-http-client"),
+            width=18,
+        )
+        mineru_backend.grid(row=7, column=0, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="MinerU Methode").grid(row=6, column=1, sticky="w", pady=(10, 4))
+        mineru_method = ttk.Combobox(
+            docling_options,
+            textvariable=self.mineru_method_var,
+            state="readonly",
+            values=("auto", "ocr", "txt"),
+            width=12,
+        )
+        mineru_method.grid(row=7, column=1, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="MinerU Sprache").grid(row=6, column=2, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.mineru_lang_var).grid(row=7, column=2, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="MinerU API URL").grid(row=6, column=3, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.mineru_api_url_var).grid(row=7, column=3, columnspan=2, sticky="ew", padx=(0, 10))
+        ttk.Checkbutton(docling_options, text="MinerU Tabellen", variable=self.mineru_table_var).grid(row=8, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="MinerU Formeln", variable=self.mineru_formula_var).grid(row=8, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="MinerU Bildanalyse", variable=self.mineru_image_analysis_var).grid(row=8, column=2, sticky="w", pady=(8, 0))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -310,6 +343,13 @@ class DoclinkApp(tk.Tk):
             lmstudio_base_url=self.lmstudio_base_url_var.get().strip() or "http://localhost:1234/v1",
             lmstudio_model=self.lmstudio_model_var.get().strip(),
             lmstudio_max_tokens=_int_or_default(self.lmstudio_max_tokens_var.get(), 4096),
+            mineru_backend=self.mineru_backend_var.get(),
+            mineru_method=self.mineru_method_var.get(),
+            mineru_lang=self.mineru_lang_var.get().strip(),
+            mineru_table=self.mineru_table_var.get(),
+            mineru_formula=self.mineru_formula_var.get(),
+            mineru_image_analysis=self.mineru_image_analysis_var.get(),
+            mineru_api_url=self.mineru_api_url_var.get().strip(),
         )
 
     def _options_summary(self, options: ConversionOptions) -> str:
@@ -322,7 +362,8 @@ class DoclinkApp(tk.Tk):
             f"Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
             f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
-            f"LM Studio={options.lmstudio_base_url}\n\n"
+            f"LM Studio={options.lmstudio_base_url}, "
+            f"MinerU={options.mineru_backend}/{options.mineru_method}\n\n"
         )
 
     def _append_log(self, text: str) -> None:

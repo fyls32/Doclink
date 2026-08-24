@@ -14,7 +14,7 @@ Die Markdown-Dateien landen standardmaessig im Unterordner `doclink_mds` des aus
 
 In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
-- Markdown-Modus: `docling` oder `lmstudio`
+- Markdown-Modus: `docling`, `lmstudio` oder `mineru`
 - Beschleunigung: `auto`, `cpu` oder `cuda`
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
 - OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
@@ -36,6 +36,23 @@ LM Studio Modell: leer lassen oder Modell-ID eintragen
 ```
 
 In diesem Modus rendert Doclink jede PDF-Seite als Bild und laesst das lokale Vision-Modell direkt Markdown erzeugen. Das ist oft besser fuer schwierige Tabellen, kann aber langsamer sein und haengt stark vom geladenen Modell ab.
+
+Der Modus `mineru` nutzt die externe MinerU CLI. Installiere MinerU separat:
+
+```bat
+install_mineru_windows.bat
+```
+
+Empfohlener Start fuer lokale Scans:
+
+```text
+Markdown-Modus: mineru
+MinerU Backend: pipeline
+MinerU Methode: auto oder ocr
+MinerU Tabellen: an
+```
+
+MinerU erzeugt eigene Markdown-Dateien in einem temporaeren Ausgabeordner; Doclink uebernimmt die groesste gefundene `.md` Datei.
 
 Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
 
@@ -77,6 +94,12 @@ LM Studio per CLI:
 
 ```bat
 .venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine lmstudio --lmstudio-base-url http://localhost:1234/v1
+```
+
+MinerU per CLI:
+
+```bat
+.venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine mineru --mineru-backend pipeline --mineru-method auto
 ```
 
 Ohne `-o` schreibt Doclink in `doclink_mds`.

@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -77,6 +78,7 @@ DOCLING_EXTENSIONS = {
 
 LMSTUDIO_IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 LMSTUDIO_EXTENSIONS = {".pdf", *LMSTUDIO_IMAGE_EXTENSIONS}
+MINERU_EXTENSIONS = {".bmp", ".docx", ".jpeg", ".jpg", ".pdf", ".png", ".pptx", ".tif", ".tiff", ".webp", ".xlsx"}
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,13 @@ class ConversionOptions:
     lmstudio_model: str = ""
     lmstudio_max_tokens: int = 4096
     lmstudio_temperature: float = 0.0
+    mineru_backend: str = "pipeline"
+    mineru_method: str = "auto"
+    mineru_lang: str = ""
+    mineru_table: bool = True
+    mineru_formula: bool = True
+    mineru_image_analysis: bool = False
+    mineru_api_url: str = ""
 
 
 QUALITY_SETTINGS = {
@@ -189,7 +198,11 @@ def convert_file(source: Path, options: ConversionOptions | None = None) -> str:
     body = ""
     docling_error: Exception | None = None
 
-    if options.markdown_engine == "lmstudio" and suffix in LMSTUDIO_EXTENSIONS:
+    if options.markdown_engine == "mineru" and suffix in MINERU_EXTENSIONS:
+        body = _mineru_to_markdown(source, options)
+        if not _has_content(body):
+            raise EmptyExtractionError(f"MinerU did not return usable Markdown for {source.name}.")
+    elif options.markdown_engine == "lmstudio" and suffix in LMSTUDIO_EXTENSIONS:
         body = _lmstudio_to_markdown(source, options)
         if not _has_content(body):
             raise EmptyExtractionError(f"LM Studio did not return usable Markdown for {source.name}.")
@@ -459,6 +472,65 @@ def _export_docling_markdown(document, options: ConversionOptions) -> str:
 
 def _quality_settings(options: ConversionOptions) -> dict[str, float]:
     return QUALITY_SETTINGS.get(options.quality, QUALITY_SETTINGS["balanced"])
+
+
+def _mineru_to_markdown(path: Path, options: ConversionOptions) -> str:
+    mineru = _mineru_executable()
+    with tempfile.TemporaryDirectory(prefix="doclink_mineru_") as temp_dir:
+        output_dir = Path(temp_dir) / "output"
+        command = [
+            str(mineru),
+            "-p",
+            str(path),
+            "-o",
+            str(output_dir),
+            "-b",
+            options.mineru_backend,
+            "-m",
+            options.mineru_method,
+            "-t",
+            _bool_arg(options.mineru_table),
+            "-f",
+            _bool_arg(options.mineru_formula),
+        ]
+
+        if options.mineru_lang.strip():
+            command.extend(["-l", options.mineru_lang.strip()])
+        if options.mineru_image_analysis:
+            command.extend(["--image-analysis", "true"])
+        if options.mineru_api_url.strip():
+            command.extend(["--api-url", options.mineru_api_url.strip()])
+
+        env = os.environ.copy()
+        env.setdefault("PYTHONUTF8", "1")
+        completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
+        if completed.returncode != 0:
+            details = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+            raise RuntimeError(f"MinerU failed with exit code {completed.returncode}: {details[-2000:]}")
+
+        markdown_files = sorted(output_dir.rglob("*.md"), key=lambda item: item.stat().st_size, reverse=True)
+        if not markdown_files:
+            details = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+            raise EmptyExtractionError(f"MinerU created no Markdown for {path.name}. {details[-1000:]}")
+
+        return markdown_files[0].read_text(encoding="utf-8", errors="replace")
+
+
+def _mineru_executable() -> Path:
+    executable_name = "mineru.exe" if sys.platform.startswith("win") else "mineru"
+    local_candidate = Path(sys.executable).resolve().parent / executable_name
+    if local_candidate.exists():
+        return local_candidate
+
+    found = shutil.which("mineru")
+    if found:
+        return Path(found)
+
+    raise MissingDependencyError("MinerU is missing; run install_mineru_windows.bat first.")
+
+
+def _bool_arg(value: bool) -> str:
+    return "true" if value else "false"
 
 
 def _lmstudio_to_markdown(path: Path, options: ConversionOptions) -> str:

@@ -14,9 +14,9 @@ def main() -> int:
     parser.add_argument("--no-overwrite", action="store_true", help="Keep existing Markdown files")
     parser.add_argument(
         "--markdown-engine",
-        choices=("docling", "lmstudio"),
+        choices=("docling", "lmstudio", "mineru"),
         default="docling",
-        help="Markdown engine: Docling pipeline or local LM Studio vision model",
+        help="Markdown engine: Docling, local LM Studio vision model, or MinerU CLI",
     )
     parser.add_argument("--accelerator", choices=("auto", "cpu", "cuda"), default="auto", help="Docling accelerator device")
     parser.add_argument(
@@ -41,6 +41,17 @@ def main() -> int:
     parser.add_argument("--lmstudio-base-url", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible base URL")
     parser.add_argument("--lmstudio-model", default="", help="LM Studio model id; defaults to the first loaded model")
     parser.add_argument("--lmstudio-max-tokens", type=int, default=4096)
+    parser.add_argument(
+        "--mineru-backend",
+        choices=("pipeline", "hybrid-engine", "vlm-engine", "hybrid-http-client", "vlm-http-client"),
+        default="pipeline",
+    )
+    parser.add_argument("--mineru-method", choices=("auto", "ocr", "txt"), default="auto")
+    parser.add_argument("--mineru-lang", default="", help="Optional MinerU language code")
+    parser.add_argument("--mineru-no-table", action="store_true", help="Disable MinerU table parsing")
+    parser.add_argument("--mineru-no-formula", action="store_true", help="Disable MinerU formula parsing")
+    parser.add_argument("--mineru-image-analysis", action="store_true", help="Enable MinerU image/chart analysis")
+    parser.add_argument("--mineru-api-url", default="", help="Existing MinerU FastAPI URL")
     args = parser.parse_args()
 
     output = args.output or args.input / "doclink_mds"
@@ -61,6 +72,13 @@ def main() -> int:
         lmstudio_base_url=args.lmstudio_base_url,
         lmstudio_model=args.lmstudio_model,
         lmstudio_max_tokens=args.lmstudio_max_tokens,
+        mineru_backend=args.mineru_backend,
+        mineru_method=args.mineru_method,
+        mineru_lang=args.mineru_lang,
+        mineru_table=not args.mineru_no_table,
+        mineru_formula=not args.mineru_no_formula,
+        mineru_image_analysis=args.mineru_image_analysis,
+        mineru_api_url=args.mineru_api_url,
     )
     results = convert_folder(
         args.input,
