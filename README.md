@@ -23,10 +23,15 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Bilder extrahieren: Bilder im Markdown einbetten
 - Bildtexte per VLM: sichtbaren Text/Bildinhalt als Text anhaengen
 - Diagramme extrahieren
+- Docling Ueberschriften: Heading-Level aus Schriftgroesse, Nummerierung und Font-Stil ableiten
+- Scan-Bildtext: OCR-Text innerhalb von gescannten Seitenbildern beim Markdown-Export mitnehmen
+- Unterstriche escapen: Unterstriche fuer Markdown schuetzen; standardmaessig aus, damit Text natuerlicher bleibt
 
 Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`. Wenn leere Tabellenzellen falsch aufgefuellt werden, stelle Tabellen auf `off`; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
 
 Bei NVIDIA-GPU kann `Beschleunigung: cuda` Docling-Layout/OCR/Tabellenmodelle beschleunigen, sofern deine Python/PyTorch-Installation CUDA nutzen kann. `auto` laesst Docling selbst entscheiden, `cpu` erzwingt CPU.
+
+Wichtig fuer gescannte PDFs: `Scan-Bildtext` sollte eingeschaltet bleiben. Docling dokumentiert, dass `traverse_pictures=True` fuer Full-Page-OCR wichtig ist, weil OCR-Text sonst innerhalb eines Picture-Elements liegen kann.
 
 Der Modus `lmstudio` nutzt deinen lokalen LM-Studio-Server. Starte in LM Studio den lokalen Server, lade ein Vision-Modell und nutze in der App standardmaessig:
 

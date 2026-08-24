@@ -38,6 +38,9 @@ def main() -> int:
     parser.add_argument("--extract-pictures", action="store_true", help="Extract picture images in Docling pipeline")
     parser.add_argument("--describe-pictures", action="store_true", help="Use Docling VLM picture descriptions")
     parser.add_argument("--chart-extraction", action="store_true", help="Enable chart extraction")
+    parser.add_argument("--no-heading-hierarchy", action="store_true", help="Disable Docling heading hierarchy inference")
+    parser.add_argument("--no-traverse-picture-text", action="store_true", help="Disable traversing OCR text inside picture items")
+    parser.add_argument("--escape-underscores", action="store_true", help="Escape underscores in Markdown export")
     parser.add_argument("--lmstudio-base-url", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible base URL")
     parser.add_argument("--lmstudio-model", default="", help="LM Studio model id; defaults to the first loaded model")
     parser.add_argument("--lmstudio-max-tokens", type=int, default=4096)
@@ -69,6 +72,9 @@ def main() -> int:
         extract_pictures=args.extract_pictures,
         describe_pictures=args.describe_pictures,
         chart_extraction=args.chart_extraction,
+        heading_hierarchy=not args.no_heading_hierarchy,
+        traverse_picture_text=not args.no_traverse_picture_text,
+        escape_underscores=args.escape_underscores,
         lmstudio_base_url=args.lmstudio_base_url,
         lmstudio_model=args.lmstudio_model,
         lmstudio_max_tokens=args.lmstudio_max_tokens,

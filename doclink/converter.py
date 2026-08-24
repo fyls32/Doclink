@@ -108,6 +108,9 @@ class ConversionOptions:
     extract_pictures: bool = False
     describe_pictures: bool = False
     chart_extraction: bool = False
+    heading_hierarchy: bool = True
+    traverse_picture_text: bool = True
+    escape_underscores: bool = False
     lmstudio_base_url: str = "http://localhost:1234/v1"
     lmstudio_model: str = ""
     lmstudio_max_tokens: int = 4096
@@ -307,6 +310,14 @@ def _get_docling_converter(options: ConversionOptions):
         pipeline_options.do_picture_description = options.describe_pictures
         pipeline_options.do_chart_extraction = options.chart_extraction
 
+        if options.heading_hierarchy:
+            try:
+                from docling.datamodel.pipeline_options import HeadingHierarchyOptions
+
+                pipeline_options.heading_hierarchy_options = HeadingHierarchyOptions(enabled=True)
+            except Exception:
+                pass
+
         if pipeline_options.do_table_structure:
             pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
             pipeline_options.table_structure_options.mode = (
@@ -454,9 +465,11 @@ def _append_picture_descriptions(markdown: str, document) -> str:
 
 def _export_docling_markdown(document, options: ConversionOptions) -> str:
     kwargs = {
+        "escape_underscores": options.escape_underscores,
         "include_annotations": True,
         "enable_chart_tables": True,
-        "traverse_pictures": options.describe_pictures,
+        "compact_tables": False,
+        "traverse_pictures": options.traverse_picture_text or options.describe_pictures or options.ocr_mode == "full_page",
     }
 
     if options.extract_pictures:

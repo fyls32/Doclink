@@ -35,6 +35,9 @@ class DoclinkApp(tk.Tk):
         self.extract_pictures_var = tk.BooleanVar(value=False)
         self.describe_pictures_var = tk.BooleanVar(value=False)
         self.chart_extraction_var = tk.BooleanVar(value=False)
+        self.heading_hierarchy_var = tk.BooleanVar(value=True)
+        self.traverse_picture_text_var = tk.BooleanVar(value=True)
+        self.escape_underscores_var = tk.BooleanVar(value=False)
         self.lmstudio_base_url_var = tk.StringVar(value="http://localhost:1234/v1")
         self.lmstudio_model_var = tk.StringVar(value="")
         self.lmstudio_max_tokens_var = tk.StringVar(value="4096")
@@ -194,6 +197,9 @@ class DoclinkApp(tk.Tk):
         ttk.Checkbutton(docling_options, text="MinerU Tabellen", variable=self.mineru_table_var).grid(row=8, column=0, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="MinerU Formeln", variable=self.mineru_formula_var).grid(row=8, column=1, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="MinerU Bildanalyse", variable=self.mineru_image_analysis_var).grid(row=8, column=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Docling Ueberschriften", variable=self.heading_hierarchy_var).grid(row=8, column=3, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Scan-Bildtext", variable=self.traverse_picture_text_var).grid(row=8, column=4, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Unterstriche escapen", variable=self.escape_underscores_var).grid(row=8, column=5, sticky="w", pady=(8, 0))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -340,6 +346,9 @@ class DoclinkApp(tk.Tk):
             extract_pictures=self.extract_pictures_var.get(),
             describe_pictures=self.describe_pictures_var.get(),
             chart_extraction=self.chart_extraction_var.get(),
+            heading_hierarchy=self.heading_hierarchy_var.get(),
+            traverse_picture_text=self.traverse_picture_text_var.get(),
+            escape_underscores=self.escape_underscores_var.get(),
             lmstudio_base_url=self.lmstudio_base_url_var.get().strip() or "http://localhost:1234/v1",
             lmstudio_model=self.lmstudio_model_var.get().strip(),
             lmstudio_max_tokens=_int_or_default(self.lmstudio_max_tokens_var.get(), 4096),
