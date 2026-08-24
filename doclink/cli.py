@@ -14,9 +14,9 @@ def main() -> int:
     parser.add_argument("--no-overwrite", action="store_true", help="Keep existing Markdown files")
     parser.add_argument(
         "--markdown-engine",
-        choices=("docling", "lmstudio", "mineru"),
+        choices=("docling", "lmstudio", "mineru", "docstrange"),
         default="docling",
-        help="Markdown engine: Docling, local LM Studio vision model, or MinerU CLI",
+        help="Markdown engine: Docling, local LM Studio vision model, MinerU CLI, or local DocStrange",
     )
     parser.add_argument("--accelerator", choices=("auto", "cpu", "cuda"), default="auto", help="Docling accelerator device")
     parser.add_argument(
@@ -75,6 +75,18 @@ def main() -> int:
     parser.add_argument("--mineru-no-formula", action="store_true", help="Disable MinerU formula parsing")
     parser.add_argument("--mineru-image-analysis", action="store_true", help="Enable MinerU image/chart analysis")
     parser.add_argument("--mineru-api-url", default="", help="Existing MinerU FastAPI URL")
+    parser.add_argument(
+        "--docstrange-processing",
+        choices=("local_cpu", "local_gpu"),
+        default="local_cpu",
+        help="Run DocStrange locally on CPU or GPU",
+    )
+    parser.add_argument(
+        "--docstrange-output",
+        choices=("html", "markdown", "csv", "text", "json"),
+        default="html",
+        help="DocStrange output format stored inside the .md file",
+    )
     args = parser.parse_args()
 
     output = args.output or args.input / "doclink_mds"
@@ -115,6 +127,8 @@ def main() -> int:
         mineru_formula=not args.mineru_no_formula,
         mineru_image_analysis=args.mineru_image_analysis,
         mineru_api_url=args.mineru_api_url,
+        docstrange_processing=args.docstrange_processing,
+        docstrange_output=args.docstrange_output,
     )
     results = convert_folder(
         args.input,

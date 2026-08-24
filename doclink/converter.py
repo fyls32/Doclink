@@ -83,6 +83,25 @@ DOCLING_EXTENSIONS = {
 LMSTUDIO_IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 LMSTUDIO_EXTENSIONS = {".pdf", *LMSTUDIO_IMAGE_EXTENSIONS}
 MINERU_EXTENSIONS = {".bmp", ".docx", ".jpeg", ".jpg", ".pdf", ".png", ".pptx", ".tif", ".tiff", ".webp", ".xlsx"}
+DOCSTRANGE_EXTENSIONS = {
+    ".bmp",
+    ".csv",
+    ".doc",
+    ".docx",
+    ".htm",
+    ".html",
+    ".jpeg",
+    ".jpg",
+    ".pdf",
+    ".png",
+    ".ppt",
+    ".pptx",
+    ".tif",
+    ".tiff",
+    ".txt",
+    ".xls",
+    ".xlsx",
+}
 
 
 @dataclass(frozen=True)
@@ -132,6 +151,8 @@ class ConversionOptions:
     mineru_formula: bool = True
     mineru_image_analysis: bool = False
     mineru_api_url: str = ""
+    docstrange_output: str = "html"
+    docstrange_processing: str = "local_cpu"
 
 
 QUALITY_SETTINGS = {
@@ -223,6 +244,10 @@ def convert_file(source: Path, options: ConversionOptions | None = None) -> str:
         body = _lmstudio_to_markdown(source, options)
         if not _has_content(body):
             raise EmptyExtractionError(f"LM Studio did not return usable Markdown for {source.name}.")
+    elif options.markdown_engine == "docstrange" and suffix in DOCSTRANGE_EXTENSIONS:
+        body = _docstrange_to_markdown(source, options)
+        if not _has_content(body):
+            raise EmptyExtractionError(f"DocStrange did not return usable content for {source.name}.")
     elif suffix in DOCLING_EXTENSIONS:
         try:
             body = _docling_to_markdown(source, options)
@@ -648,6 +673,55 @@ def _mineru_executable() -> Path:
 
 def _bool_arg(value: bool) -> str:
     return "true" if value else "false"
+
+
+def _docstrange_to_markdown(path: Path, options: ConversionOptions) -> str:
+    try:
+        from docstrange import DocumentExtractor
+    except ImportError as exc:
+        raise MissingDependencyError("DocStrange is missing; run install_docstrange_windows.bat first.") from exc
+
+    kwargs: dict[str, object] = {}
+    if options.docstrange_processing == "local_gpu":
+        kwargs["gpu"] = True
+    else:
+        kwargs["cpu"] = True
+
+    extractor = DocumentExtractor(**kwargs)
+    try:
+        result = extractor.extract(str(path))
+    except Exception as exc:
+        raise RuntimeError(f"DocStrange extraction failed: {exc}") from exc
+
+    output = options.docstrange_output
+    if output == "html":
+        return _call_docstrange_result(result, "extract_html")
+    if output == "csv":
+        content = _call_docstrange_result(result, "extract_csv")
+        return f"```csv\n{content.strip()}\n```"
+    if output == "text":
+        return _call_docstrange_result(result, "extract_text")
+    if output == "json":
+        data = _docstrange_extract_data(result)
+        return f"```json\n{json.dumps(data, indent=2, ensure_ascii=False)}\n```"
+    return _call_docstrange_result(result, "extract_markdown")
+
+
+def _call_docstrange_result(result, method_name: str) -> str:
+    method = getattr(result, method_name, None)
+    if not callable(method):
+        raise RuntimeError(f"DocStrange result does not support {method_name}.")
+    value = method()
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _docstrange_extract_data(result):
+    method = getattr(result, "extract_data", None)
+    if not callable(method):
+        raise RuntimeError("DocStrange result does not support extract_data.")
+    return method()
 
 
 def _lmstudio_to_markdown(path: Path, options: ConversionOptions) -> str:

@@ -14,7 +14,7 @@ Die Markdown-Dateien landen standardmaessig im Unterordner `doclink_mds` des aus
 
 In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
-- Markdown-Modus: `docling`, `lmstudio` oder `mineru`
+- Markdown-Modus: `docling`, `lmstudio`, `mineru` oder `docstrange`
 - Beschleunigung: `auto`, `cpu` oder `cuda`
 - PDF Backend: `docling_parse`, `pypdfium2`, `dlparse_v4`, `dlparse_v2`, `dlparse_v1`, `threaded_docling_parse`, `auto`
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
@@ -91,6 +91,22 @@ MinerU Tabellen: an
 
 MinerU erzeugt eigene Markdown-Dateien in einem temporaeren Ausgabeordner; Doclink uebernimmt die groesste gefundene `.md` Datei.
 
+Der Modus `docstrange` nutzt die lokale DocStrange-Python-Bibliothek. Installiere DocStrange separat:
+
+```bat
+install_docstrange_windows.bat
+```
+
+Doclink nutzt DocStrange nur lokal mit `local_cpu` oder `local_gpu`; es wird kein Cloud-Modus und kein API-Key verwendet. Empfohlener Start fuer deine Steuer-/Tabellenscans:
+
+```text
+Markdown-Modus: docstrange
+DocStrange lokal: local_cpu
+DocStrange Ausgabe: html
+```
+
+Wenn deine CUDA-Installation funktioniert, kannst du `local_gpu` testen. Die erzeugte Datei bleibt eine `.md`; bei Ausgabe `html` liegt der DocStrange-HTML-Inhalt innerhalb dieser Markdown-Datei.
+
 Auf Windows setzt Doclink automatisch `HF_HUB_DISABLE_SYMLINKS=1`, damit Hugging Face Modell-Dateien kopiert statt Symlinks anzulegen. Das vermeidet `WinError 1314`, kann aber mehr Speicherplatz im Modellcache brauchen.
 
 Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
@@ -139,6 +155,12 @@ MinerU per CLI:
 
 ```bat
 .venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine mineru --mineru-backend pipeline --mineru-method auto
+```
+
+DocStrange lokal per CLI:
+
+```bat
+.venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine docstrange --docstrange-processing local_cpu --docstrange-output html
 ```
 
 Ohne `-o` schreibt Doclink in `doclink_mds`.

@@ -14,6 +14,7 @@ pyinstaller --noconfirm --windowed --name Doclink ^
     --hidden-import=easyocr ^
     --hidden-import=pypdfium2 ^
     --hidden-import=pypdf ^
+    --hidden-import=docstrange ^
     --hidden-import=docx ^
     --hidden-import=bs4 ^
     --hidden-import=openpyxl ^

@@ -58,6 +58,8 @@ class DoclinkApp(tk.Tk):
         self.mineru_formula_var = tk.BooleanVar(value=True)
         self.mineru_image_analysis_var = tk.BooleanVar(value=False)
         self.mineru_api_url_var = tk.StringVar(value="")
+        self.docstrange_processing_var = tk.StringVar(value="local_cpu")
+        self.docstrange_output_var = tk.StringVar(value="html")
         self.status_var = tk.StringVar(value="Bereit")
         self.progress_var = tk.IntVar(value=0)
 
@@ -112,7 +114,7 @@ class DoclinkApp(tk.Tk):
             docling_options,
             textvariable=self.markdown_engine_var,
             state="readonly",
-            values=("docling", "lmstudio", "mineru"),
+            values=("docling", "lmstudio", "mineru", "docstrange"),
             width=16,
         )
         markdown_engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
@@ -253,6 +255,26 @@ class DoclinkApp(tk.Tk):
         ttk.Checkbutton(docling_options, text="Verwaiste Textbloecke", variable=self.layout_create_orphan_clusters_var).grid(row=11, column=1, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="Leere Layoutbereiche", variable=self.layout_keep_empty_clusters_var).grid(row=11, column=2, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="Layout-Zellzuordnung aus", variable=self.layout_skip_cell_assignment_var).grid(row=11, column=3, columnspan=2, sticky="w", pady=(8, 0))
+
+        ttk.Label(docling_options, text="DocStrange lokal").grid(row=12, column=0, sticky="w", pady=(10, 4))
+        docstrange_processing = ttk.Combobox(
+            docling_options,
+            textvariable=self.docstrange_processing_var,
+            state="readonly",
+            values=("local_cpu", "local_gpu"),
+            width=14,
+        )
+        docstrange_processing.grid(row=13, column=0, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="DocStrange Ausgabe").grid(row=12, column=1, sticky="w", pady=(10, 4))
+        docstrange_output = ttk.Combobox(
+            docling_options,
+            textvariable=self.docstrange_output_var,
+            state="readonly",
+            values=("html", "markdown", "csv", "text", "json"),
+            width=14,
+        )
+        docstrange_output.grid(row=13, column=1, sticky="ew", padx=(0, 10))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -422,6 +444,8 @@ class DoclinkApp(tk.Tk):
             mineru_formula=self.mineru_formula_var.get(),
             mineru_image_analysis=self.mineru_image_analysis_var.get(),
             mineru_api_url=self.mineru_api_url_var.get().strip(),
+            docstrange_processing=self.docstrange_processing_var.get(),
+            docstrange_output=self.docstrange_output_var.get(),
         )
 
     def _options_summary(self, options: ConversionOptions) -> str:
@@ -438,7 +462,8 @@ class DoclinkApp(tk.Tk):
             f"RapidOCR-Score={options.rapidocr_text_score or 'auto'}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
             f"LM Studio={options.lmstudio_base_url}, LM-Tabellen={options.lmstudio_table_format}, "
-            f"MinerU={options.mineru_backend}/{options.mineru_method}\n\n"
+            f"MinerU={options.mineru_backend}/{options.mineru_method}, "
+            f"DocStrange={options.docstrange_processing}/{options.docstrange_output}\n\n"
         )
 
     def _append_log(self, text: str) -> None:
