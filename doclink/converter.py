@@ -79,6 +79,29 @@ class ConversionResult:
     message: str
 
 
+@dataclass(frozen=True)
+class ConversionOptions:
+    ocr_engine: str = "rapidocr"
+    ocr_mode: str = "full_page"
+    quality: str = "balanced"
+    ocr_lang: str = "de"
+    easyocr_langs: tuple[str, ...] = ("de", "en")
+    tesseract_langs: tuple[str, ...] = ("deu", "eng")
+    table_mode: str = "accurate"
+    table_cell_matching: bool = True
+    extract_pictures: bool = False
+    describe_pictures: bool = False
+    chart_extraction: bool = False
+
+
+QUALITY_SETTINGS = {
+    "fast": {"scale": 2.0, "picture_threshold": 0.05},
+    "balanced": {"scale": 3.0, "picture_threshold": 0.03},
+    "high": {"scale": 4.0, "picture_threshold": 0.015},
+    "max": {"scale": 5.0, "picture_threshold": 0.005},
+}
+
+
 ProgressCallback = Callable[[ConversionResult], None]
 
 
@@ -104,6 +127,7 @@ def convert_folder(
     output_dir: Path,
     recursive: bool = True,
     overwrite: bool = True,
+    options: ConversionOptions | None = None,
     progress: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
     input_dir = input_dir.resolve()
@@ -126,7 +150,7 @@ def convert_folder(
             if target.exists() and not overwrite:
                 result = ConversionResult(source, target, "skipped", "Markdown already exists")
             else:
-                markdown = convert_file(source)
+                markdown = convert_file(source, options=options)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(markdown, encoding="utf-8", newline="\n")
                 result = ConversionResult(source, target, "created", "Markdown created")
@@ -144,7 +168,8 @@ def convert_folder(
     return results
 
 
-def convert_file(source: Path) -> str:
+def convert_file(source: Path, options: ConversionOptions | None = None) -> str:
+    options = options or ConversionOptions()
     suffix = source.suffix.lower()
 
     body = ""
@@ -152,7 +177,7 @@ def convert_file(source: Path) -> str:
 
     if suffix in DOCLING_EXTENSIONS:
         try:
-            body = _docling_to_markdown(source)
+            body = _docling_to_markdown(source, options)
         except MissingDependencyError as exc:
             docling_error = exc
         except Exception as exc:
@@ -206,7 +231,7 @@ class EmptyExtractionError(RuntimeError):
     pass
 
 
-def _docling_to_markdown(path: Path) -> str:
+def _docling_to_markdown(path: Path, options: ConversionOptions) -> str:
     try:
         from docling.document_converter import DocumentConverter
     except ImportError as exc:
@@ -215,58 +240,174 @@ def _docling_to_markdown(path: Path) -> str:
     if path.stat().st_size == 0:
         raise EmptyExtractionError(f"{path.name} is empty and cannot be converted.")
 
-    converter = _get_docling_converter()
+    converter = _get_docling_converter(options)
 
     with tempfile.TemporaryDirectory(prefix="doclink_") as temp_dir:
         safe_path = Path(temp_dir) / f"source{path.suffix.lower()}"
         shutil.copy2(path, safe_path)
         result = converter.convert(safe_path)
 
-    return result.document.export_to_markdown()
+    markdown = _export_docling_markdown(result.document, options)
+    if options.describe_pictures:
+        markdown = _append_picture_descriptions(markdown, result.document)
+
+    return markdown
 
 
-def _get_docling_converter():
-    if not hasattr(_get_docling_converter, "_converter"):
+def _get_docling_converter(options: ConversionOptions):
+    cache = getattr(_get_docling_converter, "_cache", {})
+    if options not in cache:
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
+        from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode, TableStructureOptions
         from docling.document_converter import DocumentConverter
         from docling.document_converter import PdfFormatOption
 
+        settings = _quality_settings(options)
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = True
+        pipeline_options.do_ocr = options.ocr_engine != "none"
         pipeline_options.do_table_structure = True
-        pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
-        pipeline_options.ocr_options = _get_ocr_options()
+        pipeline_options.images_scale = settings["scale"]
+        pipeline_options.generate_picture_images = options.extract_pictures or options.describe_pictures
+        pipeline_options.do_picture_description = options.describe_pictures
+        pipeline_options.do_chart_extraction = options.chart_extraction
 
-        _get_docling_converter._converter = DocumentConverter(  # type: ignore[attr-defined]
+        pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
+        pipeline_options.table_structure_options.mode = (
+            TableFormerMode.FAST if options.table_mode == "fast" else TableFormerMode.ACCURATE
+        )
+
+        if options.ocr_engine != "none":
+            pipeline_options.ocr_options = _get_ocr_options(options, settings["scale"])
+
+        if options.describe_pictures:
+            pipeline_options.picture_description_options = _get_picture_description_options(settings["picture_threshold"])
+
+        cache[options] = DocumentConverter(
             format_options={
                 InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
             }
         )
-    return _get_docling_converter._converter  # type: ignore[attr-defined]
+        _get_docling_converter._cache = cache  # type: ignore[attr-defined]
+    return cache[options]
 
 
-def _get_ocr_options():
+def _get_ocr_options(options: ConversionOptions, scale: float):
     from docling.datamodel.pipeline_options import OcrMode
 
-    rapidocr_lang = os.getenv("DOCLINK_OCR_LANG", "de")
-    easyocr_langs = [lang.strip() for lang in os.getenv("DOCLINK_EASYOCR_LANGS", "de,en").split(",") if lang.strip()]
+    mode = _ocr_mode(options.ocr_mode, OcrMode)
 
-    try:
-        from docling.datamodel.pipeline_options import RapidOcrOptions
+    if options.ocr_engine == "auto":
+        try:
+            from docling.datamodel.pipeline_options import OcrAutoOptions
 
-        return RapidOcrOptions(mode=OcrMode.FULL_PAGE, lang=[rapidocr_lang])
-    except Exception:
-        pass
+            return OcrAutoOptions(mode=mode, scale=scale)
+        except Exception:
+            pass
 
-    try:
+    if options.ocr_engine == "tesseract_cli":
+        from docling.datamodel.pipeline_options import TesseractCliOcrOptions
+
+        kwargs: dict[str, object] = {"mode": mode, "lang": list(options.tesseract_langs), "scale": scale}
+        tesseract_cmd = os.getenv("TESSERACT_CMD")
+        if tesseract_cmd:
+            kwargs["tesseract_cmd"] = tesseract_cmd
+        return TesseractCliOcrOptions(**kwargs)
+
+    if options.ocr_engine == "easyocr":
         from docling.datamodel.pipeline_options import EasyOcrOptions
 
-        return EasyOcrOptions(mode=OcrMode.FULL_PAGE, lang=easyocr_langs)
+        return EasyOcrOptions(mode=mode, lang=list(options.easyocr_langs), scale=scale)
+
+    if options.ocr_engine == "rapidocr":
+        from docling.datamodel.pipeline_options import RapidOcrOptions
+
+        return RapidOcrOptions(mode=mode, lang=[options.ocr_lang], scale=scale)
+
+    raise MissingDependencyError(f"Unknown OCR engine: {options.ocr_engine}")
+
+
+def _ocr_mode(value: str, enum_cls):
+    mapping = {
+        "default": enum_cls.DEFAULT,
+        "full_page": enum_cls.FULL_PAGE,
+        "layout_regions": enum_cls.LAYOUT_REGIONS,
+        "pdf_aware_layout_regions": enum_cls.PDF_AWARE_LAYOUT_REGIONS,
+    }
+    return mapping.get(value, enum_cls.FULL_PAGE)
+
+
+def _get_picture_description_options(picture_threshold: float):
+    prompt = (
+        "Transkribiere allen sichtbaren Text im Bild exakt. "
+        "Wenn kein Text vorhanden ist, beschreibe das Bild kurz und sachlich auf Deutsch."
+    )
+
+    try:
+        from docling.datamodel.pipeline_options import PictureDescriptionVlmEngineOptions
+
+        picture_options = PictureDescriptionVlmEngineOptions.from_preset("smolvlm")
     except Exception as exc:
         raise MissingDependencyError(
-            "OCR support is missing; run install_windows.bat again or install rapidocr-onnxruntime/easyocr."
+            "Picture description needs Docling VLM support; run install_vision_windows.bat."
         ) from exc
+
+    picture_options.prompt = prompt
+    picture_options.picture_area_threshold = picture_threshold
+    picture_options.scale = 2.0
+    return picture_options
+
+
+def _append_picture_descriptions(markdown: str, document) -> str:
+    lines: list[str] = []
+
+    for index, picture in enumerate(getattr(document, "pictures", []), start=1):
+        meta = getattr(picture, "meta", None)
+        description = getattr(meta, "description", None) if meta else None
+        text = getattr(description, "text", "") if description else ""
+        caption = ""
+        try:
+            caption = picture.caption_text(doc=document)
+        except Exception:
+            caption = ""
+
+        if text.strip() or caption.strip():
+            lines.append(f"### Bild {index}")
+            if caption.strip():
+                lines.append(f"Beschriftung: {caption.strip()}")
+            if text.strip():
+                lines.append(text.strip())
+            lines.append("")
+
+    if not lines:
+        return markdown
+
+    return f"{markdown.rstrip()}\n\n## Bildtexte und Beschreibungen\n\n" + "\n".join(lines).rstrip() + "\n"
+
+
+def _export_docling_markdown(document, options: ConversionOptions) -> str:
+    kwargs = {
+        "include_annotations": True,
+        "enable_chart_tables": True,
+        "traverse_pictures": options.describe_pictures,
+    }
+
+    if options.extract_pictures:
+        try:
+            from docling_core.types.doc import ImageRefMode
+
+            kwargs["image_mode"] = ImageRefMode.EMBEDDED
+            kwargs["image_placeholder"] = "<!-- image embedded -->"
+        except Exception:
+            pass
+
+    try:
+        return document.export_to_markdown(**kwargs)
+    except TypeError:
+        return document.export_to_markdown()
+
+
+def _quality_settings(options: ConversionOptions) -> dict[str, float]:
+    return QUALITY_SETTINGS.get(options.quality, QUALITY_SETTINGS["balanced"])
 
 
 def _has_content(markdown: str) -> bool:

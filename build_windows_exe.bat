@@ -11,6 +11,7 @@ python -m pip install --upgrade pyinstaller
 pyinstaller --noconfirm --windowed --name Doclink ^
     --hidden-import=docling ^
     --hidden-import=rapidocr_onnxruntime ^
+    --hidden-import=easyocr ^
     --hidden-import=pypdf ^
     --hidden-import=docx ^
     --hidden-import=bs4 ^

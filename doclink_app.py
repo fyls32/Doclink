@@ -10,20 +10,29 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from doclink.converter import ConversionResult, convert_folder, list_supported_files
+from doclink.converter import ConversionOptions, ConversionResult, convert_folder, list_supported_files
 
 
 class DoclinkApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Doclink")
-        self.geometry("820x560")
-        self.minsize(680, 480)
+        self.geometry("920x700")
+        self.minsize(780, 620)
 
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
         self.recursive_var = tk.BooleanVar(value=True)
         self.overwrite_var = tk.BooleanVar(value=True)
+        self.ocr_engine_var = tk.StringVar(value="rapidocr")
+        self.ocr_mode_var = tk.StringVar(value="full_page")
+        self.quality_var = tk.StringVar(value="balanced")
+        self.ocr_lang_var = tk.StringVar(value="de")
+        self.table_mode_var = tk.StringVar(value="accurate")
+        self.table_cell_matching_var = tk.BooleanVar(value=True)
+        self.extract_pictures_var = tk.BooleanVar(value=False)
+        self.describe_pictures_var = tk.BooleanVar(value=False)
+        self.chart_extraction_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Bereit")
         self.progress_var = tk.IntVar(value=0)
 
@@ -35,7 +44,7 @@ class DoclinkApp(tk.Tk):
 
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(3, weight=1)
+        self.rowconfigure(4, weight=1)
 
         header = ttk.Frame(self, padding=(16, 14, 16, 8))
         header.grid(row=0, column=0, sticky="ew")
@@ -68,8 +77,61 @@ class DoclinkApp(tk.Tk):
         self.start_button.grid(row=0, column=2, sticky="e", padx=(18, 0))
         ttk.Button(options, text="Zielordner oeffnen", command=self._open_output).grid(row=0, column=3, sticky="e", padx=(10, 0))
 
+        docling_options = ttk.LabelFrame(self, text="Docling / OCR Optionen", padding=(12, 8))
+        docling_options.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
+        for column in range(6):
+            docling_options.columnconfigure(column, weight=1)
+
+        ttk.Label(docling_options, text="OCR Engine").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        engine = ttk.Combobox(
+            docling_options,
+            textvariable=self.ocr_engine_var,
+            state="readonly",
+            values=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
+            width=16,
+        )
+        engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="OCR Modus").grid(row=0, column=1, sticky="w", pady=(0, 4))
+        mode = ttk.Combobox(
+            docling_options,
+            textvariable=self.ocr_mode_var,
+            state="readonly",
+            values=("full_page", "pdf_aware_layout_regions", "layout_regions", "default"),
+            width=22,
+        )
+        mode.grid(row=1, column=1, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="Qualitaet").grid(row=0, column=2, sticky="w", pady=(0, 4))
+        quality = ttk.Combobox(
+            docling_options,
+            textvariable=self.quality_var,
+            state="readonly",
+            values=("fast", "balanced", "high", "max"),
+            width=12,
+        )
+        quality.grid(row=1, column=2, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="Sprache").grid(row=0, column=3, sticky="w", pady=(0, 4))
+        ttk.Entry(docling_options, textvariable=self.ocr_lang_var, width=10).grid(row=1, column=3, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="Tabellen").grid(row=0, column=4, sticky="w", pady=(0, 4))
+        tables = ttk.Combobox(
+            docling_options,
+            textvariable=self.table_mode_var,
+            state="readonly",
+            values=("accurate", "fast"),
+            width=12,
+        )
+        tables.grid(row=1, column=4, sticky="ew", padx=(0, 10))
+
+        ttk.Checkbutton(docling_options, text="Zellen abgleichen", variable=self.table_cell_matching_var).grid(row=1, column=5, sticky="w")
+        ttk.Checkbutton(docling_options, text="Bilder extrahieren", variable=self.extract_pictures_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Bildtexte per VLM", variable=self.describe_pictures_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Diagramme extrahieren", variable=self.chart_extraction_var).grid(row=2, column=2, sticky="w", pady=(8, 0))
+
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
-        log_frame.grid(row=3, column=0, sticky="nsew")
+        log_frame.grid(row=4, column=0, sticky="nsew")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
 
@@ -77,7 +139,7 @@ class DoclinkApp(tk.Tk):
         self.log.grid(row=0, column=0, sticky="nsew")
 
         footer = ttk.Frame(self, padding=(16, 4, 16, 14))
-        footer.grid(row=4, column=0, sticky="ew")
+        footer.grid(row=5, column=0, sticky="ew")
         footer.columnconfigure(0, weight=1)
         ttk.Progressbar(footer, variable=self.progress_var, maximum=100).grid(row=0, column=0, sticky="ew", padx=(0, 12))
         ttk.Label(footer, textvariable=self.status_var, width=28).grid(row=0, column=1, sticky="e")
@@ -129,11 +191,17 @@ class DoclinkApp(tk.Tk):
         self.progress_var.set(0)
         self.status_var.set("Verarbeitung laeuft")
         self.start_button.configure(state="disabled")
+        conversion_options = self._conversion_options()
+        self._append_log(self._options_summary(conversion_options))
 
-        self._worker = threading.Thread(target=self._run_conversion, args=(input_dir, output_dir, len(files)), daemon=True)
+        self._worker = threading.Thread(
+            target=self._run_conversion,
+            args=(input_dir, output_dir, len(files), conversion_options),
+            daemon=True,
+        )
         self._worker.start()
 
-    def _run_conversion(self, input_dir: Path, output_dir: Path, total: int) -> None:
+    def _run_conversion(self, input_dir: Path, output_dir: Path, total: int, options: ConversionOptions) -> None:
         processed = 0
 
         def progress(result: ConversionResult) -> None:
@@ -147,6 +215,7 @@ class DoclinkApp(tk.Tk):
                 output_dir,
                 recursive=self.recursive_var.get(),
                 overwrite=self.overwrite_var.get(),
+                options=options,
                 progress=progress,
             )
             self._events.put(("done", results))
@@ -187,6 +256,36 @@ class DoclinkApp(tk.Tk):
             pass
         self.after(100, self._drain_events)
 
+    def _conversion_options(self) -> ConversionOptions:
+        ocr_lang = self.ocr_lang_var.get().strip() or "de"
+        tesseract_langs = tuple(_tesseract_langs(ocr_lang))
+        easyocr_langs = tuple(lang.strip() for lang in ocr_lang.replace(";", ",").split(",") if lang.strip()) or ("de", "en")
+
+        return ConversionOptions(
+            ocr_engine=self.ocr_engine_var.get(),
+            ocr_mode=self.ocr_mode_var.get(),
+            quality=self.quality_var.get(),
+            ocr_lang=ocr_lang.split(",")[0].strip(),
+            easyocr_langs=easyocr_langs,
+            tesseract_langs=tesseract_langs,
+            table_mode=self.table_mode_var.get(),
+            table_cell_matching=self.table_cell_matching_var.get(),
+            extract_pictures=self.extract_pictures_var.get(),
+            describe_pictures=self.describe_pictures_var.get(),
+            chart_extraction=self.chart_extraction_var.get(),
+        )
+
+    def _options_summary(self, options: ConversionOptions) -> str:
+        picture_mode = "an" if options.extract_pictures else "aus"
+        vlm_mode = "an" if options.describe_pictures else "aus"
+        chart_mode = "an" if options.chart_extraction else "aus"
+        return (
+            "Optionen: "
+            f"Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
+            f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}, "
+            f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}\n\n"
+        )
+
     def _append_log(self, text: str) -> None:
         self.log.configure(state="normal")
         self.log.insert("end", text)
@@ -216,6 +315,28 @@ class DoclinkApp(tk.Tk):
 def main() -> None:
     app = DoclinkApp()
     app.mainloop()
+
+
+def _tesseract_langs(value: str) -> list[str]:
+    aliases = {
+        "de": "deu",
+        "german": "deu",
+        "deu": "deu",
+        "en": "eng",
+        "eng": "eng",
+        "english": "eng",
+        "fr": "fra",
+        "fra": "fra",
+        "french": "fra",
+        "it": "ita",
+        "ita": "ita",
+    }
+    langs = []
+    for item in value.replace(";", ",").split(","):
+        token = item.strip().lower()
+        if token:
+            langs.append(aliases.get(token, token))
+    return langs or ["deu", "eng"]
 
 
 if __name__ == "__main__":

@@ -10,6 +10,30 @@ Kleine Windows-taugliche Tkinter-App, die einen Dokumentenordner mit Docling aus
 
 Die Markdown-Dateien landen standardmaessig im Unterordner `doclink_mds` des ausgewaehlten Dokumentenordners. Bei gescannten PDFs nutzt Doclink OCR; der erste Lauf kann deshalb mehrere Minuten dauern.
 
+## OCR- und Qualitaetsoptionen
+
+In der App koennen mehrere Docling-Optionen umgeschaltet werden:
+
+- OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
+- OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
+- Qualitaet: `fast`, `balanced`, `high`, `max`
+- Tabellenmodus: `accurate` oder `fast`
+- Bilder extrahieren: Bilder im Markdown einbetten
+- Bildtexte per VLM: sichtbaren Text/Bildinhalt als Text anhaengen
+- Diagramme extrahieren
+
+Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`.
+
+Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App.
+
+Fuer den Schalter `Bildtexte per VLM` einmal ausfuehren:
+
+```bat
+install_vision_windows.bat
+```
+
+Das installiert zusaetzliche Vision-Abhaengigkeiten und kann deutlich laenger dauern.
+
 ## Unterstuetzte Dateien
 
 Doclink verarbeitet aktuell:
