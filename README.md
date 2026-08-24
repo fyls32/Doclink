@@ -17,12 +17,12 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
 - OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
 - Qualitaet: `fast`, `balanced`, `high`, `max`
-- Tabellenmodus: `accurate` oder `fast`
+- Tabellenmodus: `accurate`, `fast` oder `off`
 - Bilder extrahieren: Bilder im Markdown einbetten
 - Bildtexte per VLM: sichtbaren Text/Bildinhalt als Text anhaengen
 - Diagramme extrahieren
 
-Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`.
+Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`. Wenn leere Tabellenzellen falsch aufgefuellt werden, stelle Tabellen auf `off`; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
 
 Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
 

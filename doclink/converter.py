@@ -266,16 +266,17 @@ def _get_docling_converter(options: ConversionOptions):
         settings = _quality_settings(options)
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = options.ocr_engine != "none"
-        pipeline_options.do_table_structure = True
+        pipeline_options.do_table_structure = options.table_mode != "off"
         pipeline_options.images_scale = settings["scale"]
         pipeline_options.generate_picture_images = options.extract_pictures or options.describe_pictures
         pipeline_options.do_picture_description = options.describe_pictures
         pipeline_options.do_chart_extraction = options.chart_extraction
 
-        pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
-        pipeline_options.table_structure_options.mode = (
-            TableFormerMode.FAST if options.table_mode == "fast" else TableFormerMode.ACCURATE
-        )
+        if pipeline_options.do_table_structure:
+            pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
+            pipeline_options.table_structure_options.mode = (
+                TableFormerMode.FAST if options.table_mode == "fast" else TableFormerMode.ACCURATE
+            )
 
         if options.ocr_engine != "none":
             pipeline_options.ocr_options = _get_ocr_options(options, settings["scale"])

@@ -26,7 +26,7 @@ def main() -> int:
     )
     parser.add_argument("--quality", choices=("fast", "balanced", "high", "max"), default="balanced")
     parser.add_argument("--ocr-lang", default="de", help="OCR language, e.g. de or en")
-    parser.add_argument("--table-mode", choices=("accurate", "fast"), default="accurate")
+    parser.add_argument("--table-mode", choices=("accurate", "fast", "off"), default="accurate")
     parser.add_argument("--no-cell-matching", action="store_true", help="Disable table cell matching")
     parser.add_argument("--extract-pictures", action="store_true", help="Extract picture images in Docling pipeline")
     parser.add_argument("--describe-pictures", action="store_true", help="Use Docling VLM picture descriptions")

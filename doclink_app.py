@@ -120,7 +120,7 @@ class DoclinkApp(tk.Tk):
             docling_options,
             textvariable=self.table_mode_var,
             state="readonly",
-            values=("accurate", "fast"),
+            values=("accurate", "fast", "off"),
             width=12,
         )
         tables.grid(row=1, column=4, sticky="ew", padx=(0, 10))
