@@ -21,6 +21,10 @@ from typing import Callable, Iterable
 from xml.etree import ElementTree
 
 
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
+
 SUPPORTED_EXTENSIONS = {
     ".bmp",
     ".csv",
@@ -503,6 +507,8 @@ def _mineru_to_markdown(path: Path, options: ConversionOptions) -> str:
 
         env = os.environ.copy()
         env.setdefault("PYTHONUTF8", "1")
+        env.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
+        env.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
         completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
         if completed.returncode != 0:
             details = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())

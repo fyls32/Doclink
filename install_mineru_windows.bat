@@ -7,6 +7,8 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 call ".venv\Scripts\activate.bat"
+set HF_HUB_DISABLE_SYMLINKS=1
+set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
 echo.
 echo Installiere MinerU. Das ist gross und kann lange dauern.

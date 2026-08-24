@@ -54,6 +54,8 @@ MinerU Tabellen: an
 
 MinerU erzeugt eigene Markdown-Dateien in einem temporaeren Ausgabeordner; Doclink uebernimmt die groesste gefundene `.md` Datei.
 
+Auf Windows setzt Doclink automatisch `HF_HUB_DISABLE_SYMLINKS=1`, damit Hugging Face Modell-Dateien kopiert statt Symlinks anzulegen. Das vermeidet `WinError 1314`, kann aber mehr Speicherplatz im Modellcache brauchen.
+
 Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
 
 Fuer den Schalter `Bildtexte per VLM` einmal ausfuehren:

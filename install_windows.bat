@@ -10,6 +10,9 @@ if %ERRORLEVEL%==0 (
 )
 
 call ".venv\Scripts\activate.bat"
+set HF_HUB_DISABLE_SYMLINKS=1
+set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+
 python -m pip install --upgrade pip
 echo.
 echo Installiere Docling und Dokument-Abhaengigkeiten. Der erste Lauf kann ein paar Minuten dauern.
