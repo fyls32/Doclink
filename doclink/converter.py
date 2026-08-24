@@ -525,7 +525,8 @@ def _lmstudio_page_to_markdown(
         "Never fill empty cells with repeated or neighboring text.\n"
         "If a table is uncertain or would require guessing, write it as aligned plain text or a bullet list instead.\n"
         "Do not wrap the entire page in one large paragraph. Split it into meaningful Markdown blocks.\n"
-        "Return only Markdown. No commentary, no preface, no code fences.\n"
+        "Return raw Markdown only. Do not wrap the answer in triple backticks. Do not use ```markdown fences. "
+        "No commentary, no preface, no code fences.\n"
         f"This is page {page_number} of {total_pages}; use this only as context for continuity."
     )
     payload = {
@@ -550,8 +551,20 @@ def _lmstudio_page_to_markdown(
         raise RuntimeError(f"Unexpected LM Studio response: {response}") from exc
 
     if isinstance(content, list):
-        return "\n".join(item.get("text", "") for item in content if isinstance(item, dict)).strip()
-    return str(content).strip()
+        markdown = "\n".join(item.get("text", "") for item in content if isinstance(item, dict)).strip()
+    else:
+        markdown = str(content).strip()
+
+    return _clean_lmstudio_markdown(markdown)
+
+
+def _clean_lmstudio_markdown(markdown: str) -> str:
+    cleaned = markdown.strip()
+    cleaned = re.sub(r"^\s*```(?:markdown|md)?\s*\n", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\n\s*```\s*$", "", cleaned)
+    cleaned = re.sub(r"\n\s*```(?:markdown|md)?\s*\n", "\n\n", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\n\s*```\s*\n", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _lmstudio_first_model(base_url: str) -> str:
