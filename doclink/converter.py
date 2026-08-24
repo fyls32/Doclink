@@ -465,7 +465,9 @@ def _append_picture_descriptions(markdown: str, document) -> str:
 
 def _export_docling_markdown(document, options: ConversionOptions) -> str:
     kwargs = {
+        "escape_html": False,
         "escape_underscores": options.escape_underscores,
+        "image_placeholder": "" if not options.extract_pictures else "<!-- image embedded -->",
         "include_annotations": True,
         "enable_chart_tables": True,
         "compact_tables": False,
@@ -477,7 +479,6 @@ def _export_docling_markdown(document, options: ConversionOptions) -> str:
             from docling_core.types.doc import ImageRefMode
 
             kwargs["image_mode"] = ImageRefMode.EMBEDDED
-            kwargs["image_placeholder"] = "<!-- image embedded -->"
         except Exception:
             pass
 
