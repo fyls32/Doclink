@@ -514,20 +514,22 @@ def _lmstudio_page_to_markdown(
 ) -> str:
     data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
     prompt = (
-        "Convert this scanned document page into clean, useful Markdown.\n"
-        "Keep the original language and wording from the document. Do not translate.\n"
-        "Do not organize the output by page number unless the page number is actually printed in the document.\n"
-        "Create structure from the document content: headings, paragraphs, lists, addresses, dates, invoice numbers, "
-        "amounts, totals, signatures, footnotes, and other visible fields.\n"
-        "Transcribe visible text as exactly and completely as possible.\n"
-        "Do not invent, normalize, summarize, correct, or complete missing content.\n"
-        "If a table is clearly visible, produce a Markdown table. Preserve empty cells as empty cells. "
-        "Never fill empty cells with repeated or neighboring text.\n"
-        "If a table is uncertain or would require guessing, write it as aligned plain text or a bullet list instead.\n"
-        "Do not wrap the entire page in one large paragraph. Split it into meaningful Markdown blocks.\n"
-        "Return raw Markdown only. Do not wrap the answer in triple backticks. Do not use ```markdown fences. "
-        "No commentary, no preface, no code fences.\n"
-        f"This is page {page_number} of {total_pages}; use this only as context for continuity."
+        "You are doing STRICT DOCUMENT TRANSCRIPTION, not summarization.\n"
+        "Task: convert the visible contents of this scanned page into Markdown.\n"
+        "Absolute rules:\n"
+        "- Output only text that is visibly present on the page.\n"
+        "- Do not add greetings, conclusions, explanations, thank-you sentences, labels, headings, totals, dates, "
+        "addresses, article names, numbers, or any other content unless it is visibly printed on the page.\n"
+        "- Do not infer missing words from context. Do not complete forms. Do not fill empty table cells.\n"
+        "- Do not normalize, correct, translate, paraphrase, summarize, or improve the document.\n"
+        "- Keep the original language and wording exactly as seen.\n"
+        "- If text is unclear, write [unleserlich] for that small part instead of guessing.\n"
+        "- Preserve rough reading order from top to bottom, left to right.\n"
+        "- Use Markdown headings/lists/tables only when they represent visible structure on the page.\n"
+        "- If a table is clearly visible, use a Markdown table and keep empty cells empty.\n"
+        "- If table structure is uncertain, use plain text lines instead of guessing columns.\n"
+        "- Return raw Markdown only. Do not wrap the answer in triple backticks. No commentary.\n"
+        f"Page context: page {page_number} of {total_pages}. Do not print this page context unless it is visible."
     )
     payload = {
         "model": model,
@@ -541,6 +543,7 @@ def _lmstudio_page_to_markdown(
             }
         ],
         "temperature": options.lmstudio_temperature,
+        "top_p": 0.1,
         "max_tokens": options.lmstudio_max_tokens,
         "stream": False,
     }
