@@ -72,6 +72,8 @@ Der LM-Studio-Prompt ist bewusst streng: Das Modell soll nur sichtbaren Text tra
 - `html`: Tabellen/Formulare als HTML-Tabellen mit leeren `<td></td>` Zellen; oft gut fuer Nanonets-OCR2
 - `markdown`: klassische Markdown-Pipe-Tabellen
 
+Wenn ein LM-Studio-Modell bei `tabs` leer antwortet, versucht Doclink dieselbe Seite automatisch mit `html`, danach mit `markdown` und zuletzt mit einem einfachen Nanonets-aehnlichen OCR-Prompt. Dadurch bricht ein Dokument nicht sofort ab, nur weil ein Tabellenformat vom Modell nicht beantwortet wird.
+
 Der Modus `mineru` nutzt die externe MinerU CLI. Installiere MinerU separat:
 
 ```bat

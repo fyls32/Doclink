@@ -658,6 +658,9 @@ def _lmstudio_to_markdown(path: Path, options: ConversionOptions) -> str:
     else:
         raise ValueError(f"LM Studio mode supports PDFs and images, not {path.suffix}")
 
+    if not images:
+        raise EmptyExtractionError(f"LM Studio could not render any pages from {path.name}.")
+
     model = options.lmstudio_model.strip() or _lmstudio_first_model(options.lmstudio_base_url)
     sections: list[str] = []
     total_pages = len(images)
@@ -715,7 +718,34 @@ def _lmstudio_page_to_markdown(
     options: ConversionOptions,
 ) -> str:
     data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    prompt = _lmstudio_strict_ocr_prompt(page_number, total_pages, options.lmstudio_table_format)
+
+    last_markdown = ""
+    for table_format in _lmstudio_table_format_attempts(options.lmstudio_table_format):
+        prompt = _lmstudio_strict_ocr_prompt(page_number, total_pages, table_format)
+        markdown = _lmstudio_prompt_to_markdown(
+            data_url=data_url,
+            model=model,
+            prompt=prompt,
+            options=options,
+        )
+        last_markdown = markdown
+        if _has_content(markdown):
+            return markdown
+
+    fallback_prompt = _lmstudio_simple_ocr_prompt(page_number, total_pages)
+    markdown = _lmstudio_prompt_to_markdown(
+        data_url=data_url,
+        model=model,
+        prompt=fallback_prompt,
+        options=options,
+    )
+    if _has_content(markdown):
+        return markdown
+
+    return last_markdown or markdown
+
+
+def _lmstudio_prompt_to_markdown(data_url: str, model: str, prompt: str, options: ConversionOptions) -> str:
     payload = {
         "model": model,
         "messages": [
@@ -746,6 +776,14 @@ def _lmstudio_page_to_markdown(
     return _clean_lmstudio_markdown(markdown)
 
 
+def _lmstudio_table_format_attempts(preferred: str) -> list[str]:
+    attempts = []
+    for table_format in (preferred, "html", "markdown", "tabs"):
+        if table_format not in attempts:
+            attempts.append(table_format)
+    return attempts
+
+
 def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int, table_format: str) -> str:
     return (
         "You are a strict OCR transcription engine for scanned administrative documents.\n"
@@ -772,6 +810,22 @@ def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int, table_format
         "Output:\n"
         f"{_lmstudio_output_instructions(table_format)}"
         f"- Page context for you only: page {page_number} of {total_pages}. Do not print this context unless it is visibly printed."
+    )
+
+
+def _lmstudio_simple_ocr_prompt(page_number: int, total_pages: int) -> str:
+    return (
+        "Extract the text from the above document as if you were reading it naturally.\n"
+        "Return tables in HTML format.\n"
+        "Keep empty table cells empty.\n"
+        "Do not copy text into neighboring empty cells.\n"
+        "Do not infer missing values.\n"
+        "Return equations in LaTeX representation.\n"
+        "Watermarks should be wrapped in <watermark></watermark>.\n"
+        "Page numbers should be wrapped in <page_number></page_number>.\n"
+        "Prefer using ☐ and ☑ for check boxes.\n"
+        "Only return the document content. No explanations.\n"
+        f"Page context for you only: page {page_number} of {total_pages}. Do not print this context unless it is visibly printed."
     )
 
 
