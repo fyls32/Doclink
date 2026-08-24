@@ -714,28 +714,7 @@ def _lmstudio_page_to_markdown(
     options: ConversionOptions,
 ) -> str:
     data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    prompt = (
-        "You are converting a scanned document page into layout-faithful Markdown.\n"
-        "Goal: preserve the visible document as closely as Markdown allows.\n"
-        "Rules:\n"
-        "- Keep the original language, spelling, line breaks, order, and visible wording. Do not translate.\n"
-        "- Do not summarize, explain, add greetings, add conclusions, or invent missing content.\n"
-        "- Do not write placeholders such as [unleserlich]. If a tiny part is unreadable, omit only that unreadable part.\n"
-        "- Preserve the visual hierarchy from the page: use #, ##, ### only when the source text is visibly larger, "
-        "bold, or clearly used as a heading. Do not choose heading levels creatively.\n"
-        "- Keep normal body text as normal Markdown paragraphs. Do not turn ordinary lines into headings.\n"
-        "- Preserve visible emphasis where obvious: bold-looking labels may be **bold**, but do not add emphasis "
-        "where the source does not show it.\n"
-        "- Preserve visible lists as Markdown lists and keep their numbering/bullets as printed.\n"
-        "- Recognize tables carefully. If rows and columns are visible, create a Markdown table with the same columns, "
-        "row order, and empty cells left empty.\n"
-        "- Do not copy text from one table cell into another. Do not fill empty cells. Do not merge separate cells "
-        "unless they are visibly merged in the document.\n"
-        "- If a table is visible but Markdown table syntax would distort it, use a plain-text aligned table block.\n"
-        "- Keep addresses, dates, prices, totals, article numbers, and signatures exactly where they appear.\n"
-        "- Return raw Markdown only. No triple backticks. No commentary.\n"
-        f"Page context: page {page_number} of {total_pages}. Do not print this page context unless it is visible."
-    )
+    prompt = _lmstudio_strict_ocr_prompt(page_number, total_pages)
     payload = {
         "model": model,
         "messages": [
@@ -748,7 +727,7 @@ def _lmstudio_page_to_markdown(
             }
         ],
         "temperature": options.lmstudio_temperature,
-        "top_p": 0.1,
+        "top_p": 0.05,
         "max_tokens": options.lmstudio_max_tokens,
         "stream": False,
     }
@@ -764,6 +743,41 @@ def _lmstudio_page_to_markdown(
         markdown = str(content).strip()
 
     return _clean_lmstudio_markdown(markdown)
+
+
+def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int) -> str:
+    return (
+        "You are a strict OCR transcription engine for scanned administrative documents.\n"
+        "Task: convert exactly this single visible page to raw Markdown. Treat the page image as the only source of truth.\n"
+        "\n"
+        "Hard rules:\n"
+        "- Transcribe only text that is visibly present on the page. Never infer, complete, calculate, correct, or invent text.\n"
+        "- Keep the original language, spelling, punctuation, numbers, dates, currency values, line breaks, and reading order.\n"
+        "- Do not translate. Do not summarize. Do not explain. Do not add comments, warnings, confidence notes, or placeholders.\n"
+        "- If a word, number, or cell is not readable, leave that part empty. Do not write 'unreadable', 'illegible', or similar.\n"
+        "- Do not repeat text to fill visually empty areas. Empty table cells must stay empty.\n"
+        "\n"
+        "Text size and formatting:\n"
+        "- Preserve relative text size and hierarchy as closely as Markdown allows.\n"
+        "- Use # only for the largest visible page title. Use ## for clearly smaller section headings. Use ### only for "
+        "clear subheadings. Do not make ordinary body text into headings.\n"
+        "- Use **bold** only when the source text is visibly bold or functions as a printed label. Do not add emphasis yourself.\n"
+        "- Keep small footer/header text as normal text unless it is visibly a heading. Do not enlarge it.\n"
+        "- Preserve visible indentation, lists, numbering, labels, and separate blocks.\n"
+        "\n"
+        "Tables and forms:\n"
+        "- Reconstruct tables only from visible rows, columns, borders, labels, and cell positions.\n"
+        "- Keep the same column order and row order as the page.\n"
+        "- Leave empty cells empty. Never copy a label or description into neighboring columns such as 'von', 'bis', "
+        "amount, date, or factor columns unless the text is visibly printed there.\n"
+        "- If Markdown table syntax cannot represent the layout without moving text into wrong cells, use an HTML table "
+        "with <table>, <tr>, <th>, and <td>; empty cells must be <td></td>.\n"
+        "- Use colspan/rowspan only when a cell is visibly merged in the document. Otherwise keep separate empty cells.\n"
+        "\n"
+        "Output:\n"
+        "- Return raw Markdown only. No fenced code block. No prose before or after.\n"
+        f"- Page context for you only: page {page_number} of {total_pages}. Do not print this context unless it is visibly printed."
+    )
 
 
 def _clean_lmstudio_markdown(markdown: str) -> str:
