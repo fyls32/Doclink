@@ -5,6 +5,8 @@ import html
 import json
 import os
 import re
+import shutil
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -210,8 +212,16 @@ def _docling_to_markdown(path: Path) -> str:
     except ImportError as exc:
         raise MissingDependencyError("docling is missing; run install_windows.bat or pip install -r requirements.txt") from exc
 
+    if path.stat().st_size == 0:
+        raise EmptyExtractionError(f"{path.name} is empty and cannot be converted.")
+
     converter = _get_docling_converter()
-    result = converter.convert(path)
+
+    with tempfile.TemporaryDirectory(prefix="doclink_") as temp_dir:
+        safe_path = Path(temp_dir) / f"source{path.suffix.lower()}"
+        shutil.copy2(path, safe_path)
+        result = converter.convert(safe_path)
+
     return result.document.export_to_markdown()
 
 
