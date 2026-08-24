@@ -59,6 +59,12 @@ def main() -> int:
     parser.add_argument("--lmstudio-model", default="", help="LM Studio model id; defaults to the first loaded model")
     parser.add_argument("--lmstudio-max-tokens", type=int, default=4096)
     parser.add_argument(
+        "--lmstudio-table-format",
+        choices=("tabs", "html", "markdown"),
+        default="tabs",
+        help="How LM Studio should return tables/forms",
+    )
+    parser.add_argument(
         "--mineru-backend",
         choices=("pipeline", "hybrid-engine", "vlm-engine", "hybrid-http-client", "vlm-http-client"),
         default="pipeline",
@@ -101,6 +107,7 @@ def main() -> int:
         lmstudio_base_url=args.lmstudio_base_url,
         lmstudio_model=args.lmstudio_model,
         lmstudio_max_tokens=args.lmstudio_max_tokens,
+        lmstudio_table_format=args.lmstudio_table_format,
         mineru_backend=args.mineru_backend,
         mineru_method=args.mineru_method,
         mineru_lang=args.mineru_lang,

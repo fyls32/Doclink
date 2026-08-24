@@ -61,11 +61,16 @@ Der Modus `lmstudio` nutzt deinen lokalen LM-Studio-Server. Starte in LM Studio 
 ```text
 LM Studio URL: http://localhost:1234/v1
 LM Studio Modell: leer lassen oder Modell-ID eintragen
+LM Tabellen: tabs, html oder markdown
 ```
 
 In diesem Modus rendert Doclink jede PDF-Seite als Bild und laesst das lokale Vision-Modell direkt Markdown erzeugen. Das ist oft besser fuer schwierige Tabellen, kann aber langsamer sein und haengt stark vom geladenen Modell ab.
 
-Der LM-Studio-Prompt ist bewusst streng: Das Modell soll nur sichtbaren Text transkribieren, nichts ergaenzen, leere Tabellenzellen leer lassen und relative Textgroessen ueber Markdown-Ueberschriften bzw. sichtbare Formatierung abbilden. Tabellen und Formularraster werden im LM-Studio-Modus als HTML-Tabellen mit leeren `<td></td>` Zellen ausgegeben, weil das bei gescannten Formularen meist sauberer ist als Markdown-Pipe-Tabellen.
+Der LM-Studio-Prompt ist bewusst streng: Das Modell soll nur sichtbaren Text transkribieren, nichts ergaenzen, leere Tabellenzellen leer lassen und relative Textgroessen ueber Markdown-Ueberschriften bzw. sichtbare Formatierung abbilden. Mit `LM Tabellen` kannst du steuern, wie Tabellen und Formularraster ausgegeben werden:
+
+- `tabs`: Tabellen/Formulare als TSV-Bloecke mit echten Tabulatoren; oft gut fuer Steuerformulare mit vielen leeren Zellen
+- `html`: Tabellen/Formulare als HTML-Tabellen mit leeren `<td></td>` Zellen; oft gut fuer Nanonets-OCR2
+- `markdown`: klassische Markdown-Pipe-Tabellen
 
 Der Modus `mineru` nutzt die externe MinerU CLI. Installiere MinerU separat:
 

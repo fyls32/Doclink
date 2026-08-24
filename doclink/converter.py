@@ -124,6 +124,7 @@ class ConversionOptions:
     lmstudio_model: str = ""
     lmstudio_max_tokens: int = 4096
     lmstudio_temperature: float = 0.0
+    lmstudio_table_format: str = "tabs"
     mineru_backend: str = "pipeline"
     mineru_method: str = "auto"
     mineru_lang: str = ""
@@ -714,7 +715,7 @@ def _lmstudio_page_to_markdown(
     options: ConversionOptions,
 ) -> str:
     data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    prompt = _lmstudio_strict_ocr_prompt(page_number, total_pages)
+    prompt = _lmstudio_strict_ocr_prompt(page_number, total_pages, options.lmstudio_table_format)
     payload = {
         "model": model,
         "messages": [
@@ -745,10 +746,10 @@ def _lmstudio_page_to_markdown(
     return _clean_lmstudio_markdown(markdown)
 
 
-def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int) -> str:
+def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int, table_format: str) -> str:
     return (
         "You are a strict OCR transcription engine for scanned administrative documents.\n"
-        "Task: convert exactly this single visible page to raw Markdown with HTML tables. "
+        f"Task: convert exactly this single visible page to raw Markdown with {_lmstudio_table_label(table_format)}. "
         "Treat the page image as the only source of truth.\n"
         "\n"
         "Hard rules:\n"
@@ -766,30 +767,75 @@ def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int) -> str:
         "- Keep small footer/header text as normal text unless it is visibly a heading. Do not enlarge it.\n"
         "- Preserve visible indentation, lists, numbering, labels, and separate blocks.\n"
         "\n"
-        "Tables and forms:\n"
-        "- Return every visible table, form grid, invoice line table, tax assessment table, and multi-column cell layout "
-        "as an HTML table, not as a Markdown pipe table.\n"
-        "- Reconstruct tables only from visible rows, columns, borders, labels, and cell positions.\n"
-        "- Keep the same column order and row order as the page.\n"
-        "- Leave empty cells empty. Never copy a label or description into neighboring columns such as 'von', 'bis', "
-        "amount, date, or factor columns unless the text is visibly printed there.\n"
-        "- Use <table>, <tr>, <th>, and <td>. Empty cells must be exactly <td></td> or <th></th>.\n"
-        "- Use colspan/rowspan only when a cell is visibly merged in the document. Otherwise keep separate empty cells.\n"
-        "- Do not add CSS, style attributes, widths, alignment guesses, or comments inside tables.\n"
-        "- Outside tables, use normal Markdown paragraphs, headings, and lists.\n"
+        f"{_lmstudio_table_instructions(table_format)}"
         "\n"
         "Output:\n"
-        "- Return raw Markdown only. No fenced code block. No prose before or after.\n"
+        f"{_lmstudio_output_instructions(table_format)}"
         f"- Page context for you only: page {page_number} of {total_pages}. Do not print this context unless it is visibly printed."
     )
 
 
+def _lmstudio_table_label(table_format: str) -> str:
+    if table_format == "html":
+        return "HTML tables"
+    if table_format == "markdown":
+        return "Markdown pipe tables"
+    return "tab-separated table blocks"
+
+
+def _lmstudio_table_instructions(table_format: str) -> str:
+    common = (
+        "Tables and forms:\n"
+        "- Reconstruct tables only from visible rows, columns, borders, labels, and cell positions.\n"
+        "- Keep the same column order and row order as the page.\n"
+        "- Leave empty cells empty. Never copy a label or description into neighboring columns such as 'von', 'bis', "
+        "amount, date, or factor columns unless the text is visibly printed there.\n"
+    )
+
+    if table_format == "html":
+        return (
+            common
+            + "- Return every visible table, form grid, invoice line table, tax assessment table, and multi-column cell layout "
+            "as an HTML table, not as a Markdown pipe table.\n"
+            "- Use <table>, <tr>, <th>, and <td>. Empty cells must be exactly <td></td> or <th></th>.\n"
+            "- Use colspan/rowspan only when a cell is visibly merged in the document. Otherwise keep separate empty cells.\n"
+            "- Do not add CSS, style attributes, widths, alignment guesses, or comments inside tables.\n"
+            "- Outside tables, use normal Markdown paragraphs, headings, and lists.\n"
+        )
+
+    if table_format == "markdown":
+        return (
+            common
+            + "- Return visible tables as Markdown pipe tables.\n"
+            "- Keep empty cells empty between pipe separators. Do not fill them for visual alignment.\n"
+            "- If a table cannot be represented safely as a Markdown pipe table, use a tab-separated TSV block instead.\n"
+            "- Outside tables, use normal Markdown paragraphs, headings, and lists.\n"
+        )
+
+    return (
+        common
+        + "- Do not create Markdown pipe tables. Do not create HTML tables.\n"
+        "- Return every visible table, form grid, invoice line table, tax assessment table, and multi-column cell layout "
+        "as tab-separated text inside a fenced ```tsv block.\n"
+        "- Each visible table row must be one line. Each visible column must be separated by one literal tab character.\n"
+        "- Empty cells must stay empty as consecutive tabs. For example: 1.1<TAB><TAB><TAB><TAB>43'497.\n"
+        "- Do not align columns with spaces. Use tabs only between cells.\n"
+        "- Outside table/form blocks, use normal Markdown paragraphs, headings, and lists.\n"
+    )
+
+
+def _lmstudio_output_instructions(table_format: str) -> str:
+    if table_format == "tabs":
+        return "- Return raw Markdown only. Fenced ```tsv blocks are allowed only for tables/forms. No prose before or after.\n"
+    return "- Return raw Markdown only. No fenced code block. No prose before or after.\n"
+
+
 def _clean_lmstudio_markdown(markdown: str) -> str:
     cleaned = markdown.strip()
-    cleaned = re.sub(r"^\s*```(?:markdown|md)?\s*\n", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\n\s*```\s*$", "", cleaned)
+    if re.match(r"^\s*```(?:markdown|md)?\s*\n", cleaned, flags=re.IGNORECASE):
+        cleaned = re.sub(r"^\s*```(?:markdown|md)?\s*\n", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\n\s*```\s*$", "", cleaned)
     cleaned = re.sub(r"\n\s*```(?:markdown|md)?\s*\n", "\n\n", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\n\s*```\s*\n", "\n\n", cleaned)
     return cleaned.strip()
 
 

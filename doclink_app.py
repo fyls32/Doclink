@@ -50,6 +50,7 @@ class DoclinkApp(tk.Tk):
         self.lmstudio_base_url_var = tk.StringVar(value="http://localhost:1234/v1")
         self.lmstudio_model_var = tk.StringVar(value="")
         self.lmstudio_max_tokens_var = tk.StringVar(value="4096")
+        self.lmstudio_table_format_var = tk.StringVar(value="tabs")
         self.mineru_backend_var = tk.StringVar(value="pipeline")
         self.mineru_method_var = tk.StringVar(value="auto")
         self.mineru_lang_var = tk.StringVar(value="")
@@ -180,6 +181,15 @@ class DoclinkApp(tk.Tk):
         ttk.Entry(docling_options, textvariable=self.lmstudio_model_var).grid(row=5, column=2, columnspan=2, sticky="ew", padx=(0, 10))
         ttk.Label(docling_options, text="Max Tokens").grid(row=4, column=4, sticky="w", pady=(10, 4))
         ttk.Entry(docling_options, textvariable=self.lmstudio_max_tokens_var, width=10).grid(row=5, column=4, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="LM Tabellen").grid(row=4, column=5, sticky="w", pady=(10, 4))
+        lmstudio_tables = ttk.Combobox(
+            docling_options,
+            textvariable=self.lmstudio_table_format_var,
+            state="readonly",
+            values=("tabs", "html", "markdown"),
+            width=12,
+        )
+        lmstudio_tables.grid(row=5, column=5, sticky="ew")
 
         ttk.Label(docling_options, text="MinerU Backend").grid(row=6, column=0, sticky="w", pady=(10, 4))
         mineru_backend = ttk.Combobox(
@@ -404,6 +414,7 @@ class DoclinkApp(tk.Tk):
             lmstudio_base_url=self.lmstudio_base_url_var.get().strip() or "http://localhost:1234/v1",
             lmstudio_model=self.lmstudio_model_var.get().strip(),
             lmstudio_max_tokens=_int_or_default(self.lmstudio_max_tokens_var.get(), 4096),
+            lmstudio_table_format=self.lmstudio_table_format_var.get(),
             mineru_backend=self.mineru_backend_var.get(),
             mineru_method=self.mineru_method_var.get(),
             mineru_lang=self.mineru_lang_var.get().strip(),
@@ -426,7 +437,7 @@ class DoclinkApp(tk.Tk):
             f"Zellen={'an' if options.table_cell_matching else 'aus'}, "
             f"RapidOCR-Score={options.rapidocr_text_score or 'auto'}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
-            f"LM Studio={options.lmstudio_base_url}, "
+            f"LM Studio={options.lmstudio_base_url}, LM-Tabellen={options.lmstudio_table_format}, "
             f"MinerU={options.mineru_backend}/{options.mineru_method}\n\n"
         )
 
