@@ -16,10 +16,19 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
 - Markdown-Modus: `docling`, `lmstudio` oder `mineru`
 - Beschleunigung: `auto`, `cpu` oder `cuda`
+- PDF Backend: `docling_parse`, `pypdfium2`, `dlparse_v4`, `dlparse_v2`, `dlparse_v1`, `threaded_docling_parse`, `auto`
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
 - OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
 - Qualitaet: `fast`, `balanced`, `high`, `max`
+- OCR Scale: leer = Qualitaetsvorgabe; sonst direkter Render-Faktor fuer OCR, z. B. `2.5`, `3`, `4`
+- RapidOCR Score: leer = Standard; niedriger, z. B. `0.3`, erkennt mehr Text, kann aber mehr Fehler erzeugen
+- Tesseract PSM: leer = Standard; fuer Tesseract z. B. `3`, `6` oder `11`
 - Tabellenmodus: `accurate`, `fast` oder `off`
+- Tabellenmodell: `v1`, `v2` oder `granite`, falls deine Docling-Version das Modell unterstuetzt
+- Backend-Text erzwingen: vorhandenen PDF-Text bevorzugen, bei reinen Scans meist unwichtig
+- Verwaiste Textbloecke: Text behalten, der keinem Layoutbereich sicher zugeordnet wird
+- Leere Layoutbereiche: leere Layout-Cluster behalten; kann bei Formularen helfen, kann aber auch mehr Rauschen erzeugen
+- Layout-Zellzuordnung aus: Zellen im Layout nicht automatisch zuordnen; experimentell fuer schwierige Tabellen
 - Bilder extrahieren: Bilder im Markdown einbetten
 - Bildtexte per VLM: sichtbaren Text/Bildinhalt als Text anhaengen
 - Diagramme extrahieren
@@ -27,7 +36,21 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Scan-Bildtext: OCR-Text innerhalb von gescannten Seitenbildern beim Markdown-Export mitnehmen
 - Unterstriche escapen: Unterstriche fuer Markdown schuetzen; standardmaessig aus, damit Text natuerlicher bleibt
 
-Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`. Wenn leere Tabellenzellen falsch aufgefuellt werden, stelle Tabellen auf `off`; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
+Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high`, Tabellen `accurate`, Tabellenmodell `v1`, Zellen abgleichen zuerst `aus` testen. Wenn viel Text fehlt, probiere `OCR Scale` nacheinander mit `2.5`, `3`, `4` und `5`; der beste Wert haengt stark vom Scan ab. Wenn RapidOCR Text uebersieht, probiere `RapidOCR Score=0.3`.
+
+Wenn Tabellen/Formulare schlecht sind, teste diese Reihenfolge:
+
+```text
+1. Zellen abgleichen: aus
+2. Tabellenmodell: v2
+3. PDF Backend: pypdfium2
+4. OCR Scale: 3 oder 4 statt nur Qualitaet max
+5. Tabellenmodell: granite nur mit Vision-Installation/GPU oder viel Geduld auf CPU
+```
+
+`threaded_docling_parse` ist eher fuer Geschwindigkeit gedacht und nicht die erste Wahl fuer schwierige Tabellen.
+
+Wenn leere Tabellenzellen falsch aufgefuellt werden, ist `Zellen abgleichen: aus` meist besser als Tabellen komplett auszuschalten. `Tabellen: off` ist der letzte Ausweg; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
 
 Bei NVIDIA-GPU kann `Beschleunigung: cuda` Docling-Layout/OCR/Tabellenmodelle beschleunigen, sofern deine Python/PyTorch-Installation CUDA nutzen kann. `auto` laesst Docling selbst entscheiden, `cpu` erzwingt CPU.
 

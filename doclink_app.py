@@ -17,8 +17,8 @@ class DoclinkApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Doclink")
-        self.geometry("920x700")
-        self.minsize(780, 620)
+        self.geometry("1040x780")
+        self.minsize(860, 700)
 
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
@@ -26,12 +26,21 @@ class DoclinkApp(tk.Tk):
         self.overwrite_var = tk.BooleanVar(value=True)
         self.markdown_engine_var = tk.StringVar(value="docling")
         self.accelerator_var = tk.StringVar(value="auto")
+        self.pdf_backend_var = tk.StringVar(value="docling_parse")
         self.ocr_engine_var = tk.StringVar(value="rapidocr")
         self.ocr_mode_var = tk.StringVar(value="full_page")
-        self.quality_var = tk.StringVar(value="balanced")
+        self.quality_var = tk.StringVar(value="high")
+        self.ocr_scale_var = tk.StringVar(value="")
         self.ocr_lang_var = tk.StringVar(value="de")
+        self.rapidocr_text_score_var = tk.StringVar(value="")
+        self.tesseract_psm_var = tk.StringVar(value="")
         self.table_mode_var = tk.StringVar(value="accurate")
-        self.table_cell_matching_var = tk.BooleanVar(value=True)
+        self.table_structure_model_var = tk.StringVar(value="v1")
+        self.table_cell_matching_var = tk.BooleanVar(value=False)
+        self.force_backend_text_var = tk.BooleanVar(value=False)
+        self.layout_create_orphan_clusters_var = tk.BooleanVar(value=True)
+        self.layout_keep_empty_clusters_var = tk.BooleanVar(value=False)
+        self.layout_skip_cell_assignment_var = tk.BooleanVar(value=False)
         self.extract_pictures_var = tk.BooleanVar(value=False)
         self.describe_pictures_var = tk.BooleanVar(value=False)
         self.chart_extraction_var = tk.BooleanVar(value=False)
@@ -201,6 +210,40 @@ class DoclinkApp(tk.Tk):
         ttk.Checkbutton(docling_options, text="Scan-Bildtext", variable=self.traverse_picture_text_var).grid(row=8, column=4, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="Unterstriche escapen", variable=self.escape_underscores_var).grid(row=8, column=5, sticky="w", pady=(8, 0))
 
+        ttk.Label(docling_options, text="PDF Backend").grid(row=9, column=0, sticky="w", pady=(10, 4))
+        pdf_backend = ttk.Combobox(
+            docling_options,
+            textvariable=self.pdf_backend_var,
+            state="readonly",
+            values=("docling_parse", "pypdfium2", "dlparse_v4", "dlparse_v2", "dlparse_v1", "threaded_docling_parse", "auto"),
+            width=16,
+        )
+        pdf_backend.grid(row=10, column=0, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="Tabellenmodell").grid(row=9, column=1, sticky="w", pady=(10, 4))
+        table_structure_model = ttk.Combobox(
+            docling_options,
+            textvariable=self.table_structure_model_var,
+            state="readonly",
+            values=("v1", "v2", "granite"),
+            width=12,
+        )
+        table_structure_model.grid(row=10, column=1, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="OCR Scale").grid(row=9, column=2, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.ocr_scale_var, width=10).grid(row=10, column=2, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="RapidOCR Score").grid(row=9, column=3, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.rapidocr_text_score_var, width=10).grid(row=10, column=3, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="Tesseract PSM").grid(row=9, column=4, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.tesseract_psm_var, width=10).grid(row=10, column=4, sticky="ew", padx=(0, 10))
+
+        ttk.Checkbutton(docling_options, text="Backend-Text erzwingen", variable=self.force_backend_text_var).grid(row=11, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Verwaiste Textbloecke", variable=self.layout_create_orphan_clusters_var).grid(row=11, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Leere Layoutbereiche", variable=self.layout_keep_empty_clusters_var).grid(row=11, column=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Layout-Zellzuordnung aus", variable=self.layout_skip_cell_assignment_var).grid(row=11, column=3, columnspan=2, sticky="w", pady=(8, 0))
+
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
         log_frame.columnconfigure(0, weight=1)
@@ -335,14 +378,23 @@ class DoclinkApp(tk.Tk):
         return ConversionOptions(
             markdown_engine=self.markdown_engine_var.get(),
             accelerator=self.accelerator_var.get(),
+            pdf_backend=self.pdf_backend_var.get(),
             ocr_engine=self.ocr_engine_var.get(),
             ocr_mode=self.ocr_mode_var.get(),
             quality=self.quality_var.get(),
+            ocr_scale=_float_or_none(self.ocr_scale_var.get()),
             ocr_lang=ocr_lang.split(",")[0].strip(),
+            rapidocr_text_score=_float_or_none(self.rapidocr_text_score_var.get()),
+            tesseract_psm=_int_or_none(self.tesseract_psm_var.get()),
             easyocr_langs=easyocr_langs,
             tesseract_langs=tesseract_langs,
             table_mode=self.table_mode_var.get(),
+            table_structure_model=self.table_structure_model_var.get(),
             table_cell_matching=self.table_cell_matching_var.get(),
+            force_backend_text=self.force_backend_text_var.get(),
+            layout_create_orphan_clusters=self.layout_create_orphan_clusters_var.get(),
+            layout_keep_empty_clusters=self.layout_keep_empty_clusters_var.get(),
+            layout_skip_cell_assignment=self.layout_skip_cell_assignment_var.get(),
             extract_pictures=self.extract_pictures_var.get(),
             describe_pictures=self.describe_pictures_var.get(),
             chart_extraction=self.chart_extraction_var.get(),
@@ -368,8 +420,11 @@ class DoclinkApp(tk.Tk):
         return (
             "Optionen: "
             f"Markdown={options.markdown_engine}, Beschleunigung={options.accelerator}, "
-            f"Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
-            f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}, "
+            f"PDF={options.pdf_backend}, Engine={options.ocr_engine}, Modus={options.ocr_mode}, "
+            f"Qualitaet={options.quality}, OCR-Scale={options.ocr_scale or 'auto'}, "
+            f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}/{options.table_structure_model}, "
+            f"Zellen={'an' if options.table_cell_matching else 'aus'}, "
+            f"RapidOCR-Score={options.rapidocr_text_score or 'auto'}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
             f"LM Studio={options.lmstudio_base_url}, "
             f"MinerU={options.mineru_backend}/{options.mineru_method}\n\n"
@@ -426,6 +481,27 @@ def _tesseract_langs(value: str) -> list[str]:
         if token:
             langs.append(aliases.get(token, token))
     return langs or ["deu", "eng"]
+
+
+def _float_or_none(value: str) -> float | None:
+    value = value.strip().replace(",", ".")
+    if not value:
+        return None
+    try:
+        parsed = float(value)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _int_or_none(value: str) -> int | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 def _int_or_default(value: str, default: int) -> int:

@@ -20,6 +20,12 @@ def main() -> int:
     )
     parser.add_argument("--accelerator", choices=("auto", "cpu", "cuda"), default="auto", help="Docling accelerator device")
     parser.add_argument(
+        "--pdf-backend",
+        choices=("docling_parse", "pypdfium2", "dlparse_v4", "dlparse_v2", "dlparse_v1", "threaded_docling_parse", "auto"),
+        default="docling_parse",
+        help="PDF backend used by Docling",
+    )
+    parser.add_argument(
         "--ocr-engine",
         choices=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
         default="rapidocr",
@@ -31,10 +37,18 @@ def main() -> int:
         default="full_page",
         help="OCR region mode",
     )
-    parser.add_argument("--quality", choices=("fast", "balanced", "high", "max"), default="balanced")
+    parser.add_argument("--quality", choices=("fast", "balanced", "high", "max"), default="high")
+    parser.add_argument("--ocr-scale", type=float, default=None, help="Override OCR render scale, e.g. 2.5, 3, 4")
     parser.add_argument("--ocr-lang", default="de", help="OCR language, e.g. de or en")
+    parser.add_argument("--rapidocr-text-score", type=float, default=None, help="RapidOCR confidence threshold; lower can catch more text")
+    parser.add_argument("--tesseract-psm", type=int, default=None, help="Tesseract page segmentation mode, e.g. 3, 6, 11")
     parser.add_argument("--table-mode", choices=("accurate", "fast", "off"), default="accurate")
+    parser.add_argument("--table-structure-model", choices=("v1", "v2", "granite"), default="v1")
     parser.add_argument("--no-cell-matching", action="store_true", help="Disable table cell matching")
+    parser.add_argument("--force-backend-text", action="store_true", help="Prefer backend text where available")
+    parser.add_argument("--no-layout-orphans", action="store_true", help="Disable orphan layout text clusters")
+    parser.add_argument("--layout-keep-empty", action="store_true", help="Keep empty layout clusters")
+    parser.add_argument("--layout-skip-cell-assignment", action="store_true", help="Skip assigning cells during layout analysis")
     parser.add_argument("--extract-pictures", action="store_true", help="Extract picture images in Docling pipeline")
     parser.add_argument("--describe-pictures", action="store_true", help="Use Docling VLM picture descriptions")
     parser.add_argument("--chart-extraction", action="store_true", help="Enable chart extraction")
@@ -61,14 +75,23 @@ def main() -> int:
     options = ConversionOptions(
         markdown_engine=args.markdown_engine,
         accelerator=args.accelerator,
+        pdf_backend=args.pdf_backend,
         ocr_engine=args.ocr_engine,
         ocr_mode=args.ocr_mode,
         quality=args.quality,
+        ocr_scale=args.ocr_scale if args.ocr_scale and args.ocr_scale > 0 else None,
         ocr_lang=args.ocr_lang,
+        rapidocr_text_score=args.rapidocr_text_score,
+        tesseract_psm=args.tesseract_psm,
         easyocr_langs=tuple(lang.strip() for lang in args.ocr_lang.split(",") if lang.strip()) or ("de", "en"),
         tesseract_langs=tuple(_tesseract_langs(args.ocr_lang)),
         table_mode=args.table_mode,
+        table_structure_model=args.table_structure_model,
         table_cell_matching=not args.no_cell_matching,
+        force_backend_text=args.force_backend_text,
+        layout_create_orphan_clusters=not args.no_layout_orphans,
+        layout_keep_empty_clusters=args.layout_keep_empty,
+        layout_skip_cell_assignment=args.layout_skip_cell_assignment,
         extract_pictures=args.extract_pictures,
         describe_pictures=args.describe_pictures,
         chart_extraction=args.chart_extraction,

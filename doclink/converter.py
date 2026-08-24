@@ -97,14 +97,23 @@ class ConversionResult:
 class ConversionOptions:
     markdown_engine: str = "docling"
     accelerator: str = "auto"
+    pdf_backend: str = "docling_parse"
     ocr_engine: str = "rapidocr"
     ocr_mode: str = "full_page"
-    quality: str = "balanced"
+    quality: str = "high"
+    ocr_scale: float | None = None
     ocr_lang: str = "de"
+    rapidocr_text_score: float | None = None
+    tesseract_psm: int | None = None
     easyocr_langs: tuple[str, ...] = ("de", "en")
     tesseract_langs: tuple[str, ...] = ("deu", "eng")
     table_mode: str = "accurate"
+    table_structure_model: str = "v1"
     table_cell_matching: bool = True
+    force_backend_text: bool = False
+    layout_create_orphan_clusters: bool = True
+    layout_keep_empty_clusters: bool = False
+    layout_skip_cell_assignment: bool = False
     extract_pictures: bool = False
     describe_pictures: bool = False
     chart_extraction: bool = False
@@ -296,19 +305,22 @@ def _get_docling_converter(options: ConversionOptions):
     cache = getattr(_get_docling_converter, "_cache", {})
     if options not in cache:
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode, TableStructureOptions
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
         from docling.document_converter import DocumentConverter
         from docling.document_converter import PdfFormatOption
 
         settings = _quality_settings(options)
+        ocr_scale = _ocr_scale(options, settings)
         pipeline_options = PdfPipelineOptions()
         pipeline_options.accelerator_options = _accelerator_options(options)
         pipeline_options.do_ocr = options.ocr_engine != "none"
         pipeline_options.do_table_structure = options.table_mode != "off"
-        pipeline_options.images_scale = settings["scale"]
+        pipeline_options.force_backend_text = options.force_backend_text
+        pipeline_options.images_scale = ocr_scale
         pipeline_options.generate_picture_images = options.extract_pictures or options.describe_pictures
         pipeline_options.do_picture_description = options.describe_pictures
         pipeline_options.do_chart_extraction = options.chart_extraction
+        _apply_layout_options(pipeline_options, options)
 
         if options.heading_hierarchy:
             try:
@@ -319,24 +331,97 @@ def _get_docling_converter(options: ConversionOptions):
                 pass
 
         if pipeline_options.do_table_structure:
-            pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
-            pipeline_options.table_structure_options.mode = (
-                TableFormerMode.FAST if options.table_mode == "fast" else TableFormerMode.ACCURATE
-            )
+            pipeline_options.table_structure_options = _get_table_structure_options(options)
 
         if options.ocr_engine != "none":
-            pipeline_options.ocr_options = _get_ocr_options(options, settings["scale"])
+            pipeline_options.ocr_options = _get_ocr_options(options, ocr_scale)
 
         if options.describe_pictures:
             pipeline_options.picture_description_options = _get_picture_description_options(settings["picture_threshold"])
 
+        pdf_format_kwargs: dict[str, object] = {"pipeline_options": pipeline_options}
+        backend = _pdf_backend(options.pdf_backend)
+        if backend is not None:
+            pdf_format_kwargs["backend"] = backend
+
         cache[options] = DocumentConverter(
             format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+                InputFormat.PDF: PdfFormatOption(**pdf_format_kwargs),
             }
         )
         _get_docling_converter._cache = cache  # type: ignore[attr-defined]
     return cache[options]
+
+
+def _get_table_structure_options(options: ConversionOptions):
+    from docling.datamodel.pipeline_options import TableFormerMode, TableStructureOptions
+
+    if options.table_structure_model == "granite":
+        try:
+            from docling.datamodel.pipeline_options import GraniteVisionTableStructureOptions
+
+            return GraniteVisionTableStructureOptions()
+        except Exception:
+            pass
+
+    if options.table_structure_model == "v2":
+        try:
+            from docling.datamodel.pipeline_options import TableStructureV2Options
+
+            return TableStructureV2Options(do_cell_matching=options.table_cell_matching)
+        except Exception:
+            pass
+
+    table_options = TableStructureOptions(do_cell_matching=options.table_cell_matching)
+    table_options.mode = TableFormerMode.FAST if options.table_mode == "fast" else TableFormerMode.ACCURATE
+    return table_options
+
+
+def _apply_layout_options(pipeline_options, options: ConversionOptions) -> None:
+    layout_kwargs = {
+        "create_orphan_clusters": options.layout_create_orphan_clusters,
+        "keep_empty_clusters": options.layout_keep_empty_clusters,
+        "skip_cell_assignment": options.layout_skip_cell_assignment,
+    }
+
+    try:
+        from docling.datamodel.pipeline_options import LayoutObjectDetectionOptions
+
+        pipeline_options.layout_options = LayoutObjectDetectionOptions(**layout_kwargs)
+    except Exception:
+        try:
+            from docling.datamodel.pipeline_options import LayoutOptions
+
+            pipeline_options.layout_options = LayoutOptions(**layout_kwargs)
+        except Exception:
+            pass
+
+    try:
+        from docling.datamodel.pipeline_options import LayoutPostprocessorOptions
+
+        pipeline_options.layout_postprocessor_options = LayoutPostprocessorOptions(**layout_kwargs)
+    except Exception:
+        pass
+
+
+def _pdf_backend(value: str):
+    if value == "auto":
+        return None
+
+    imports = {
+        "docling_parse": ("docling.backend.docling_parse_backend", "DoclingParseDocumentBackend"),
+        "threaded_docling_parse": ("docling.backend.docling_parse_backend", "ThreadedDoclingParseDocumentBackend"),
+        "pypdfium2": ("docling.backend.pypdfium2_backend", "PyPdfiumDocumentBackend"),
+        "dlparse_v1": ("docling.backend.docling_parse_v1_backend", "DoclingParseV1DocumentBackend"),
+        "dlparse_v2": ("docling.backend.docling_parse_v2_backend", "DoclingParseV2DocumentBackend"),
+        "dlparse_v4": ("docling.backend.docling_parse_v4_backend", "DoclingParseV4DocumentBackend"),
+    }
+    module_name, class_name = imports.get(value, imports["docling_parse"])
+    try:
+        module = __import__(module_name, fromlist=[class_name])
+        return getattr(module, class_name)
+    except Exception:
+        return None
 
 
 def _get_ocr_options(options: ConversionOptions, scale: float):
@@ -357,6 +442,8 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
 
         _ensure_tesseract_available()
         kwargs: dict[str, object] = {"mode": mode, "lang": list(options.tesseract_langs), "scale": scale}
+        if options.tesseract_psm is not None:
+            kwargs["psm"] = options.tesseract_psm
         tesseract_cmd = os.getenv("TESSERACT_CMD")
         if tesseract_cmd:
             kwargs["tesseract_cmd"] = tesseract_cmd
@@ -375,7 +462,10 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
     if options.ocr_engine == "rapidocr":
         from docling.datamodel.pipeline_options import RapidOcrOptions
 
-        return RapidOcrOptions(mode=mode, lang=[options.ocr_lang], scale=scale)
+        kwargs: dict[str, object] = {"mode": mode, "lang": [options.ocr_lang], "scale": scale}
+        if options.rapidocr_text_score is not None:
+            kwargs["text_score"] = options.rapidocr_text_score
+        return RapidOcrOptions(**kwargs)
 
     raise MissingDependencyError(f"Unknown OCR engine: {options.ocr_engine}")
 
@@ -490,6 +580,12 @@ def _export_docling_markdown(document, options: ConversionOptions) -> str:
 
 def _quality_settings(options: ConversionOptions) -> dict[str, float]:
     return QUALITY_SETTINGS.get(options.quality, QUALITY_SETTINGS["balanced"])
+
+
+def _ocr_scale(options: ConversionOptions, settings: dict[str, float]) -> float:
+    if options.ocr_scale is not None and options.ocr_scale > 0:
+        return options.ocr_scale
+    return settings["scale"]
 
 
 def _mineru_to_markdown(path: Path, options: ConversionOptions) -> str:
