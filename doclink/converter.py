@@ -153,7 +153,7 @@ class ConversionOptions:
     mineru_image_analysis: bool = False
     mineru_api_url: str = ""
     docstrange_output: str = "html"
-    docstrange_processing: str = "local_cpu"
+    docstrange_processing: str = "local_gpu"
 
 
 QUALITY_SETTINGS = {
@@ -711,7 +711,15 @@ def _docstrange_local_extractor(document_extractor_cls, options: ConversionOptio
     if options.docstrange_processing == "local_gpu":
         if "gpu" not in parameters:
             raise MissingDependencyError("This DocStrange version does not expose local GPU mode in its Python API.")
-        return document_extractor_cls(gpu=True)
+        try:
+            return document_extractor_cls(gpu=True)
+        except Exception as exc:
+            raise MissingDependencyError(
+                "DocStrange local_gpu could not start because CUDA is not available in this .venv. "
+                "Run install_docstrange_windows.bat again, check that it prints 'cuda available: True', "
+                "then restart Doclink. If it still prints False, update the NVIDIA driver or try another "
+                "PYTORCH_CUDA_INDEX such as https://download.pytorch.org/whl/cu124."
+            ) from exc
 
     if "cpu" in parameters:
         return document_extractor_cls(cpu=True)

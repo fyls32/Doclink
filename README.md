@@ -95,6 +95,7 @@ Der Modus `docstrange` nutzt die lokale DocStrange-Python-Bibliothek. Installier
 
 ```bat
 install_docstrange_windows.bat
+check_cuda_windows.bat
 ```
 
 Doclink nutzt DocStrange nur lokal; es wird kein Cloud-Modus und kein API-Key verwendet. Die aktuelle DocStrange-Python-Bibliothek bietet lokalen Modus vor allem ueber `local_gpu`/CUDA an. `local_cpu` bleibt als Option fuer Versionen sichtbar, die `cpu=True` wirklich unterstuetzen; sonst zeigt Doclink eine klare Fehlermeldung statt Cloud zu verwenden. Empfohlener Start fuer deine Steuer-/Tabellenscans:
@@ -106,6 +107,13 @@ DocStrange Ausgabe: html
 ```
 
 Die erzeugte Datei bleibt eine `.md`; bei Ausgabe `html` liegt der DocStrange-HTML-Inhalt innerhalb dieser Markdown-Datei.
+
+Wichtig: DocStrange local_gpu braucht CUDA-PyTorch in genau dieser `.venv`. `install_docstrange_windows.bat` installiert deshalb DocStrange und danach CUDA-faehiges PyTorch. `check_cuda_windows.bat` muss danach `cuda available: True` anzeigen. Falls nicht, kann vor dem Installer ein anderer PyTorch-Index gesetzt werden, z. B.:
+
+```bat
+set PYTORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu124
+install_docstrange_windows.bat
+```
 
 Auf Windows setzt Doclink automatisch `HF_HUB_DISABLE_SYMLINKS=1`, damit Hugging Face Modell-Dateien kopiert statt Symlinks anzulegen. Das vermeidet `WinError 1314`, kann aber mehr Speicherplatz im Modellcache brauchen.
 

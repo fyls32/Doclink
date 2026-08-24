@@ -12,9 +12,22 @@ set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
 echo.
 echo Installiere DocStrange fuer lokale Verarbeitung.
-echo Hinweis: Local CPU kann langsam sein. Local GPU benoetigt eine funktionierende CUDA-Installation.
+echo Hinweis: DocStrange lokal benoetigt fuer Nanonets OCR eine funktionierende CUDA/PyTorch-Installation.
 python -m pip install --upgrade pip
 python -m pip install -U docstrange
+
+if "%PYTORCH_CUDA_INDEX%"=="" (
+    set PYTORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu121
+)
+
+echo.
+echo Installiere CUDA-faehiges PyTorch in diese .venv.
+echo Index: %PYTORCH_CUDA_INDEX%
+python -m pip install --upgrade --force-reinstall torch torchvision torchaudio --index-url "%PYTORCH_CUDA_INDEX%"
+
+echo.
+echo Pruefe CUDA in dieser .venv...
+python -c "import torch; print('torch:', torch.__version__); print('cuda build:', torch.version.cuda); print('cuda available:', torch.cuda.is_available()); print('gpu:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else '-')"
 
 echo.
 echo Fertig. Starte danach run_doclink_app.bat und waehle Markdown-Modus "docstrange".
