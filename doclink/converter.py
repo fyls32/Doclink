@@ -785,10 +785,22 @@ def _lmstudio_table_format_attempts(preferred: str) -> list[str]:
 
 
 def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int, table_format: str) -> str:
+    opening = (
+        "Extract the text from the above document as if you were reading it naturally.\n"
+        "Return the tables in HTML format.\n"
+        "Return the equations in LaTeX representation.\n"
+        "Watermarks should be wrapped in <watermark></watermark>.\n"
+        "Page numbers should be wrapped in <page_number></page_number>.\n"
+        "Prefer using ☐ and ☑ for check boxes.\n"
+        if table_format == "html"
+        else (
+            "You are a strict OCR transcription engine for scanned administrative documents.\n"
+            f"Task: convert exactly this single visible page to raw Markdown with {_lmstudio_table_label(table_format)}. "
+            "Treat the page image as the only source of truth.\n"
+        )
+    )
     return (
-        "You are a strict OCR transcription engine for scanned administrative documents.\n"
-        f"Task: convert exactly this single visible page to raw Markdown with {_lmstudio_table_label(table_format)}. "
-        "Treat the page image as the only source of truth.\n"
+        f"{opening}"
         "\n"
         "Hard rules:\n"
         "- Transcribe only text that is visibly present on the page. Never infer, complete, calculate, correct, or invent text.\n"
@@ -798,9 +810,11 @@ def _lmstudio_strict_ocr_prompt(page_number: int, total_pages: int, table_format
         "- Do not repeat text to fill visually empty areas. Empty table cells must stay empty.\n"
         "\n"
         "Text size and formatting:\n"
-        "- Preserve relative text size and hierarchy as closely as Markdown allows.\n"
-        "- Use # only for the largest visible page title. Use ## for clearly smaller section headings. Use ### only for "
-        "clear subheadings. Do not make ordinary body text into headings.\n"
+        "- Preserve the relative text sizes and visual hierarchy from the page.\n"
+        "- Use # only for the largest visible page title. Use ## for clearly smaller section headings. Use ### only for clear subheadings.\n"
+        "- If two lines have the same visible text size and style, use the same Markdown level/style for both.\n"
+        "- Do not make ordinary body text, table text, footer text, dates, addresses, or small labels into headings.\n"
+        "- If a large heading appears inside a table/form cell, keep it inside that cell and mark it with <strong> only if visibly bold.\n"
         "- Use **bold** only when the source text is visibly bold or functions as a printed label. Do not add emphasis yourself.\n"
         "- Keep small footer/header text as normal text unless it is visibly a heading. Do not enlarge it.\n"
         "- Preserve visible indentation, lists, numbering, labels, and separate blocks.\n"
@@ -817,6 +831,9 @@ def _lmstudio_simple_ocr_prompt(page_number: int, total_pages: int) -> str:
     return (
         "Extract the text from the above document as if you were reading it naturally.\n"
         "Return tables in HTML format.\n"
+        "Preserve the relative text sizes and visual hierarchy: largest visible title as #, section headings as ##, "
+        "subheadings as ###, and normal text as normal text.\n"
+        "Do not turn small labels, dates, addresses, footers, or table text into headings.\n"
         "Keep empty table cells empty.\n"
         "Do not copy text into neighboring empty cells.\n"
         "Do not infer missing values.\n"
@@ -853,6 +870,8 @@ def _lmstudio_table_instructions(table_format: str) -> str:
             "as an HTML table, not as a Markdown pipe table.\n"
             "- Use <table>, <tr>, <th>, and <td>. Empty cells must be exactly <td></td> or <th></th>.\n"
             "- Use colspan/rowspan only when a cell is visibly merged in the document. Otherwise keep separate empty cells.\n"
+            "- Preserve visible font hierarchy inside HTML tables with <th> for header cells and <strong> only for visibly bold labels.\n"
+            "- Do not use heading tags inside tables. Keep table text in cells.\n"
             "- Do not add CSS, style attributes, widths, alignment guesses, or comments inside tables.\n"
             "- Outside tables, use normal Markdown paragraphs, headings, and lists.\n"
         )
