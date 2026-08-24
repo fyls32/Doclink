@@ -13,6 +13,12 @@ def main() -> int:
     parser.add_argument("--flat", action="store_true", help="Only process files directly inside the input folder")
     parser.add_argument("--no-overwrite", action="store_true", help="Keep existing Markdown files")
     parser.add_argument(
+        "--markdown-engine",
+        choices=("docling", "lmstudio"),
+        default="docling",
+        help="Markdown engine: Docling pipeline or local LM Studio vision model",
+    )
+    parser.add_argument(
         "--ocr-engine",
         choices=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
         default="rapidocr",
@@ -31,10 +37,14 @@ def main() -> int:
     parser.add_argument("--extract-pictures", action="store_true", help="Extract picture images in Docling pipeline")
     parser.add_argument("--describe-pictures", action="store_true", help="Use Docling VLM picture descriptions")
     parser.add_argument("--chart-extraction", action="store_true", help="Enable chart extraction")
+    parser.add_argument("--lmstudio-base-url", default="http://localhost:1234/v1", help="LM Studio OpenAI-compatible base URL")
+    parser.add_argument("--lmstudio-model", default="", help="LM Studio model id; defaults to the first loaded model")
+    parser.add_argument("--lmstudio-max-tokens", type=int, default=4096)
     args = parser.parse_args()
 
     output = args.output or args.input / "doclink_mds"
     options = ConversionOptions(
+        markdown_engine=args.markdown_engine,
         ocr_engine=args.ocr_engine,
         ocr_mode=args.ocr_mode,
         quality=args.quality,
@@ -46,6 +56,9 @@ def main() -> int:
         extract_pictures=args.extract_pictures,
         describe_pictures=args.describe_pictures,
         chart_extraction=args.chart_extraction,
+        lmstudio_base_url=args.lmstudio_base_url,
+        lmstudio_model=args.lmstudio_model,
+        lmstudio_max_tokens=args.lmstudio_max_tokens,
     )
     results = convert_folder(
         args.input,

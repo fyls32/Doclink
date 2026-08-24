@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import base64
 import csv
 import html
 import json
+import mimetypes
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
 import zipfile
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -71,6 +75,9 @@ DOCLING_EXTENSIONS = {
     ".xlsx",
 }
 
+LMSTUDIO_IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+LMSTUDIO_EXTENSIONS = {".pdf", *LMSTUDIO_IMAGE_EXTENSIONS}
+
 
 @dataclass(frozen=True)
 class ConversionResult:
@@ -82,6 +89,7 @@ class ConversionResult:
 
 @dataclass(frozen=True)
 class ConversionOptions:
+    markdown_engine: str = "docling"
     ocr_engine: str = "rapidocr"
     ocr_mode: str = "full_page"
     quality: str = "balanced"
@@ -93,6 +101,10 @@ class ConversionOptions:
     extract_pictures: bool = False
     describe_pictures: bool = False
     chart_extraction: bool = False
+    lmstudio_base_url: str = "http://localhost:1234/v1"
+    lmstudio_model: str = ""
+    lmstudio_max_tokens: int = 4096
+    lmstudio_temperature: float = 0.0
 
 
 QUALITY_SETTINGS = {
@@ -176,7 +188,11 @@ def convert_file(source: Path, options: ConversionOptions | None = None) -> str:
     body = ""
     docling_error: Exception | None = None
 
-    if suffix in DOCLING_EXTENSIONS:
+    if options.markdown_engine == "lmstudio" and suffix in LMSTUDIO_EXTENSIONS:
+        body = _lmstudio_to_markdown(source, options)
+        if not _has_content(body):
+            raise EmptyExtractionError(f"LM Studio did not return usable Markdown for {source.name}.")
+    elif suffix in DOCLING_EXTENSIONS:
         try:
             body = _docling_to_markdown(source, options)
         except MissingDependencyError as exc:
@@ -430,6 +446,155 @@ def _export_docling_markdown(document, options: ConversionOptions) -> str:
 
 def _quality_settings(options: ConversionOptions) -> dict[str, float]:
     return QUALITY_SETTINGS.get(options.quality, QUALITY_SETTINGS["balanced"])
+
+
+def _lmstudio_to_markdown(path: Path, options: ConversionOptions) -> str:
+    if path.suffix.lower() == ".pdf":
+        images = _render_pdf_pages(path, options)
+    elif path.suffix.lower() in LMSTUDIO_IMAGE_EXTENSIONS:
+        images = [(1, path.read_bytes(), _mime_type(path))]
+    else:
+        raise ValueError(f"LM Studio mode supports PDFs and images, not {path.suffix}")
+
+    model = options.lmstudio_model.strip() or _lmstudio_first_model(options.lmstudio_base_url)
+    sections: list[str] = []
+    total_pages = len(images)
+
+    for page_number, image_bytes, mime_type in images:
+        page_markdown = _lmstudio_page_to_markdown(
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            page_number=page_number,
+            total_pages=total_pages,
+            model=model,
+            options=options,
+        )
+        if total_pages > 1:
+            sections.append(f"## Seite {page_number}\n\n{page_markdown.strip()}")
+        else:
+            sections.append(page_markdown.strip())
+
+    return "\n\n".join(section for section in sections if section.strip())
+
+
+def _render_pdf_pages(path: Path, options: ConversionOptions) -> list[tuple[int, bytes, str]]:
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as exc:
+        raise MissingDependencyError("pypdfium2 is missing; run install_windows.bat again.") from exc
+
+    settings = _quality_settings(options)
+    pages: list[tuple[int, bytes, str]] = []
+
+    with tempfile.TemporaryDirectory(prefix="doclink_lmstudio_") as temp_dir:
+        pdf = pdfium.PdfDocument(str(path))
+        try:
+            for index in range(len(pdf)):
+                page = pdf[index]
+                try:
+                    bitmap = page.render(scale=settings["scale"])
+                    image = bitmap.to_pil()
+                    if image.mode not in {"RGB", "L"}:
+                        image = image.convert("RGB")
+                    image_path = Path(temp_dir) / f"page_{index + 1}.jpg"
+                    image.save(image_path, format="JPEG", quality=92, optimize=True)
+                    pages.append((index + 1, image_path.read_bytes(), "image/jpeg"))
+                finally:
+                    page.close()
+        finally:
+            pdf.close()
+
+    return pages
+
+
+def _lmstudio_page_to_markdown(
+    image_bytes: bytes,
+    mime_type: str,
+    page_number: int,
+    total_pages: int,
+    model: str,
+    options: ConversionOptions,
+) -> str:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+    prompt = (
+        "Erstelle aus dieser gescannten Dokumentseite sauberes Markdown.\n"
+        "Regeln:\n"
+        "- Transkribiere sichtbaren Text exakt und vollstaendig.\n"
+        "- Erfinde keine Inhalte und korrigiere keine Betraege, Namen oder Nummern.\n"
+        "- Wenn eine Tabelle klar erkennbar ist, nutze eine Markdown-Tabelle.\n"
+        "- Lasse leere Tabellenzellen leer; fuelle sie nicht aus Nachbarzellen auf.\n"
+        "- Wenn Tabellen unsicher sind, gib sie als ausgerichtete Textzeilen oder Liste aus.\n"
+        "- Erhalte Ueberschriften, Adressen, Daten, Rechnungsnummern und Betraege.\n"
+        "- Schreibe nur Markdown, keine Erklaerung davor oder danach.\n"
+        f"Seite {page_number} von {total_pages}."
+    )
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ],
+        "temperature": options.lmstudio_temperature,
+        "max_tokens": options.lmstudio_max_tokens,
+        "stream": False,
+    }
+    response = _lmstudio_request(options.lmstudio_base_url, "/chat/completions", payload)
+    try:
+        content = response["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"Unexpected LM Studio response: {response}") from exc
+
+    if isinstance(content, list):
+        return "\n".join(item.get("text", "") for item in content if isinstance(item, dict)).strip()
+    return str(content).strip()
+
+
+def _lmstudio_first_model(base_url: str) -> str:
+    response = _lmstudio_request(base_url, "/models", None, method="GET")
+    try:
+        return str(response["data"][0]["id"])
+    except (KeyError, IndexError, TypeError) as exc:
+        raise MissingDependencyError("LM Studio has no loaded model. Load a vision model in LM Studio first.") from exc
+
+
+def _lmstudio_request(base_url: str, endpoint: str, payload: dict | None, method: str = "POST") -> dict:
+    url = _normalize_lmstudio_base_url(base_url) + endpoint
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method=method,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.getenv('LMSTUDIO_API_KEY', 'lm-studio')}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"LM Studio HTTP {exc.code}: {details}") from exc
+    except urllib.error.URLError as exc:
+        raise MissingDependencyError(
+            f"LM Studio server is not reachable at {base_url}. Start the local server in LM Studio."
+        ) from exc
+
+
+def _normalize_lmstudio_base_url(base_url: str) -> str:
+    base = base_url.strip().rstrip("/") or "http://localhost:1234/v1"
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+    return base
+
+
+def _mime_type(path: Path) -> str:
+    return mimetypes.guess_type(path.name)[0] or "image/png"
 
 
 def _has_content(markdown: str) -> bool:

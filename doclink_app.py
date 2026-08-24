@@ -24,6 +24,7 @@ class DoclinkApp(tk.Tk):
         self.output_var = tk.StringVar()
         self.recursive_var = tk.BooleanVar(value=True)
         self.overwrite_var = tk.BooleanVar(value=True)
+        self.markdown_engine_var = tk.StringVar(value="docling")
         self.ocr_engine_var = tk.StringVar(value="rapidocr")
         self.ocr_mode_var = tk.StringVar(value="full_page")
         self.quality_var = tk.StringVar(value="balanced")
@@ -33,6 +34,9 @@ class DoclinkApp(tk.Tk):
         self.extract_pictures_var = tk.BooleanVar(value=False)
         self.describe_pictures_var = tk.BooleanVar(value=False)
         self.chart_extraction_var = tk.BooleanVar(value=False)
+        self.lmstudio_base_url_var = tk.StringVar(value="http://localhost:1234/v1")
+        self.lmstudio_model_var = tk.StringVar(value="")
+        self.lmstudio_max_tokens_var = tk.StringVar(value="4096")
         self.status_var = tk.StringVar(value="Bereit")
         self.progress_var = tk.IntVar(value=0)
 
@@ -82,7 +86,17 @@ class DoclinkApp(tk.Tk):
         for column in range(6):
             docling_options.columnconfigure(column, weight=1)
 
-        ttk.Label(docling_options, text="OCR Engine").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Markdown-Modus").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        markdown_engine = ttk.Combobox(
+            docling_options,
+            textvariable=self.markdown_engine_var,
+            state="readonly",
+            values=("docling", "lmstudio"),
+            width=16,
+        )
+        markdown_engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="OCR Engine").grid(row=0, column=1, sticky="w", pady=(0, 4))
         engine = ttk.Combobox(
             docling_options,
             textvariable=self.ocr_engine_var,
@@ -90,9 +104,9 @@ class DoclinkApp(tk.Tk):
             values=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
             width=16,
         )
-        engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+        engine.grid(row=1, column=1, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="OCR Modus").grid(row=0, column=1, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="OCR Modus").grid(row=0, column=2, sticky="w", pady=(0, 4))
         mode = ttk.Combobox(
             docling_options,
             textvariable=self.ocr_mode_var,
@@ -100,9 +114,9 @@ class DoclinkApp(tk.Tk):
             values=("full_page", "pdf_aware_layout_regions", "layout_regions", "default"),
             width=22,
         )
-        mode.grid(row=1, column=1, sticky="ew", padx=(0, 10))
+        mode.grid(row=1, column=2, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="Qualitaet").grid(row=0, column=2, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Qualitaet").grid(row=0, column=3, sticky="w", pady=(0, 4))
         quality = ttk.Combobox(
             docling_options,
             textvariable=self.quality_var,
@@ -110,12 +124,12 @@ class DoclinkApp(tk.Tk):
             values=("fast", "balanced", "high", "max"),
             width=12,
         )
-        quality.grid(row=1, column=2, sticky="ew", padx=(0, 10))
+        quality.grid(row=1, column=3, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="Sprache").grid(row=0, column=3, sticky="w", pady=(0, 4))
-        ttk.Entry(docling_options, textvariable=self.ocr_lang_var, width=10).grid(row=1, column=3, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="Sprache").grid(row=0, column=4, sticky="w", pady=(0, 4))
+        ttk.Entry(docling_options, textvariable=self.ocr_lang_var, width=10).grid(row=1, column=4, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="Tabellen").grid(row=0, column=4, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Tabellen").grid(row=0, column=5, sticky="w", pady=(0, 4))
         tables = ttk.Combobox(
             docling_options,
             textvariable=self.table_mode_var,
@@ -123,12 +137,19 @@ class DoclinkApp(tk.Tk):
             values=("accurate", "fast", "off"),
             width=12,
         )
-        tables.grid(row=1, column=4, sticky="ew", padx=(0, 10))
+        tables.grid(row=1, column=5, sticky="ew")
 
-        ttk.Checkbutton(docling_options, text="Zellen abgleichen", variable=self.table_cell_matching_var).grid(row=1, column=5, sticky="w")
-        ttk.Checkbutton(docling_options, text="Bilder extrahieren", variable=self.extract_pictures_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Checkbutton(docling_options, text="Bildtexte per VLM", variable=self.describe_pictures_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
-        ttk.Checkbutton(docling_options, text="Diagramme extrahieren", variable=self.chart_extraction_var).grid(row=2, column=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Zellen abgleichen", variable=self.table_cell_matching_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Bilder extrahieren", variable=self.extract_pictures_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Bildtexte per VLM", variable=self.describe_pictures_var).grid(row=2, column=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Diagramme extrahieren", variable=self.chart_extraction_var).grid(row=2, column=3, sticky="w", pady=(8, 0))
+
+        ttk.Label(docling_options, text="LM Studio URL").grid(row=3, column=0, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_base_url_var).grid(row=4, column=0, columnspan=2, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="LM Studio Modell").grid(row=3, column=2, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_model_var).grid(row=4, column=2, columnspan=2, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="Max Tokens").grid(row=3, column=4, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_max_tokens_var, width=10).grid(row=4, column=4, sticky="ew", padx=(0, 10))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -262,6 +283,7 @@ class DoclinkApp(tk.Tk):
         easyocr_langs = tuple(lang.strip() for lang in ocr_lang.replace(";", ",").split(",") if lang.strip()) or ("de", "en")
 
         return ConversionOptions(
+            markdown_engine=self.markdown_engine_var.get(),
             ocr_engine=self.ocr_engine_var.get(),
             ocr_mode=self.ocr_mode_var.get(),
             quality=self.quality_var.get(),
@@ -273,6 +295,9 @@ class DoclinkApp(tk.Tk):
             extract_pictures=self.extract_pictures_var.get(),
             describe_pictures=self.describe_pictures_var.get(),
             chart_extraction=self.chart_extraction_var.get(),
+            lmstudio_base_url=self.lmstudio_base_url_var.get().strip() or "http://localhost:1234/v1",
+            lmstudio_model=self.lmstudio_model_var.get().strip(),
+            lmstudio_max_tokens=_int_or_default(self.lmstudio_max_tokens_var.get(), 4096),
         )
 
     def _options_summary(self, options: ConversionOptions) -> str:
@@ -281,9 +306,10 @@ class DoclinkApp(tk.Tk):
         chart_mode = "an" if options.chart_extraction else "aus"
         return (
             "Optionen: "
-            f"Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
+            f"Markdown={options.markdown_engine}, Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
             f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}, "
-            f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}\n\n"
+            f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
+            f"LM Studio={options.lmstudio_base_url}\n\n"
         )
 
     def _append_log(self, text: str) -> None:
@@ -337,6 +363,13 @@ def _tesseract_langs(value: str) -> list[str]:
         if token:
             langs.append(aliases.get(token, token))
     return langs or ["deu", "eng"]
+
+
+def _int_or_default(value: str, default: int) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        return default
 
 
 if __name__ == "__main__":

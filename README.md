@@ -14,6 +14,7 @@ Die Markdown-Dateien landen standardmaessig im Unterordner `doclink_mds` des aus
 
 In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
+- Markdown-Modus: `docling` oder `lmstudio`
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
 - OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
 - Qualitaet: `fast`, `balanced`, `high`, `max`
@@ -23,6 +24,15 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Diagramme extrahieren
 
 Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`. Wenn leere Tabellenzellen falsch aufgefuellt werden, stelle Tabellen auf `off`; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
+
+Der Modus `lmstudio` nutzt deinen lokalen LM-Studio-Server. Starte in LM Studio den lokalen Server, lade ein Vision-Modell und nutze in der App standardmaessig:
+
+```text
+LM Studio URL: http://localhost:1234/v1
+LM Studio Modell: leer lassen oder Modell-ID eintragen
+```
+
+In diesem Modus rendert Doclink jede PDF-Seite als Bild und laesst das lokale Vision-Modell direkt Markdown erzeugen. Das ist oft besser fuer schwierige Tabellen, kann aber langsamer sein und haengt stark vom geladenen Modell ab.
 
 Tesseract ist optional und muss als Windows-Programm separat installiert werden, bevor `tesseract_cli` funktioniert. Wenn Windows `tesseract.exe` nicht findet, setze `TESSERACT_CMD` auf den vollen Pfad. RapidOCR ist der normale lokale Docling/OCR-Weg dieser App. EasyOCR wird ueber `install_windows.bat` als Python-Paket installiert.
 
@@ -58,6 +68,12 @@ Doclink verarbeitet aktuell:
 
 ```bat
 .venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten -o C:\Pfad\zu\Markdown
+```
+
+LM Studio per CLI:
+
+```bat
+.venv\Scripts\python.exe -m doclink.cli C:\Pfad\zu\Dokumenten --markdown-engine lmstudio --lmstudio-base-url http://localhost:1234/v1
 ```
 
 Ohne `-o` schreibt Doclink in `doclink_mds`.

@@ -1,6 +1,8 @@
 docling>=2.44.0
 rapidocr-onnxruntime>=1.4.4
 easyocr>=1.7.2
+pypdfium2>=4.30.0
+pillow>=10.4.0
 pypdf>=4.3.1
 python-docx>=1.1.2
 beautifulsoup4>=4.12.3
