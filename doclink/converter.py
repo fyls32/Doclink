@@ -469,10 +469,7 @@ def _lmstudio_to_markdown(path: Path, options: ConversionOptions) -> str:
             model=model,
             options=options,
         )
-        if total_pages > 1:
-            sections.append(f"## Seite {page_number}\n\n{page_markdown.strip()}")
-        else:
-            sections.append(page_markdown.strip())
+        sections.append(page_markdown.strip())
 
     return "\n\n".join(section for section in sections if section.strip())
 
@@ -517,16 +514,19 @@ def _lmstudio_page_to_markdown(
 ) -> str:
     data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
     prompt = (
-        "Erstelle aus dieser gescannten Dokumentseite sauberes Markdown.\n"
-        "Regeln:\n"
-        "- Transkribiere sichtbaren Text exakt und vollstaendig.\n"
-        "- Erfinde keine Inhalte und korrigiere keine Betraege, Namen oder Nummern.\n"
-        "- Wenn eine Tabelle klar erkennbar ist, nutze eine Markdown-Tabelle.\n"
-        "- Lasse leere Tabellenzellen leer; fuelle sie nicht aus Nachbarzellen auf.\n"
-        "- Wenn Tabellen unsicher sind, gib sie als ausgerichtete Textzeilen oder Liste aus.\n"
-        "- Erhalte Ueberschriften, Adressen, Daten, Rechnungsnummern und Betraege.\n"
-        "- Schreibe nur Markdown, keine Erklaerung davor oder danach.\n"
-        f"Seite {page_number} von {total_pages}."
+        "Convert this scanned document page into clean, useful Markdown.\n"
+        "Keep the original language and wording from the document. Do not translate.\n"
+        "Do not organize the output by page number unless the page number is actually printed in the document.\n"
+        "Create structure from the document content: headings, paragraphs, lists, addresses, dates, invoice numbers, "
+        "amounts, totals, signatures, footnotes, and other visible fields.\n"
+        "Transcribe visible text as exactly and completely as possible.\n"
+        "Do not invent, normalize, summarize, correct, or complete missing content.\n"
+        "If a table is clearly visible, produce a Markdown table. Preserve empty cells as empty cells. "
+        "Never fill empty cells with repeated or neighboring text.\n"
+        "If a table is uncertain or would require guessing, write it as aligned plain text or a bullet list instead.\n"
+        "Do not wrap the entire page in one large paragraph. Split it into meaningful Markdown blocks.\n"
+        "Return only Markdown. No commentary, no preface, no code fences.\n"
+        f"This is page {page_number} of {total_pages}; use this only as context for continuity."
     )
     payload = {
         "model": model,
