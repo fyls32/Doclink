@@ -110,6 +110,7 @@ class ConversionOptions:
     table_mode: str = "accurate"
     table_structure_model: str = "v1"
     table_cell_matching: bool = True
+    clean_table_duplicates: bool = True
     force_backend_text: bool = False
     layout_create_orphan_clusters: bool = True
     layout_keep_empty_clusters: bool = False
@@ -295,6 +296,8 @@ def _docling_to_markdown(path: Path, options: ConversionOptions) -> str:
         result = converter.convert(safe_path)
 
     markdown = _export_docling_markdown(result.document, options)
+    if options.clean_table_duplicates:
+        markdown = _clean_markdown_table_duplicates(markdown)
     if options.describe_pictures:
         markdown = _append_picture_descriptions(markdown, result.document)
 
@@ -773,6 +776,79 @@ def _clean_lmstudio_markdown(markdown: str) -> str:
     cleaned = re.sub(r"\n\s*```(?:markdown|md)?\s*\n", "\n\n", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\n\s*```\s*\n", "\n\n", cleaned)
     return cleaned.strip()
+
+
+def _clean_markdown_table_duplicates(markdown: str) -> str:
+    lines = markdown.splitlines()
+    cleaned: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        if _is_table_line(lines[index]):
+            start = index
+            while index < len(lines) and _is_table_line(lines[index]):
+                index += 1
+            cleaned.extend(_clean_markdown_table_block(lines[start:index]))
+        else:
+            cleaned.append(lines[index])
+            index += 1
+
+    return "\n".join(cleaned)
+
+
+def _clean_markdown_table_block(lines: list[str]) -> list[str]:
+    if len(lines) < 2 or not _is_table_separator(lines[1]):
+        return lines
+
+    output = [_markdown_row(_clear_repeated_text_cells(_split_markdown_table_row(lines[0]))), lines[1]]
+    for line in lines[2:]:
+        if _is_table_separator(line):
+            output.append(line)
+            continue
+        cells = _split_markdown_table_row(line)
+        output.append(_markdown_row(_clear_repeated_text_cells(cells)))
+    return output
+
+
+def _clear_repeated_text_cells(cells: list[str]) -> list[str]:
+    cleaned = list(cells)
+    previous = ""
+    for column, cell in enumerate(cells):
+        normalized = _duplicate_cell_key(cell)
+        if normalized and normalized == previous:
+            cleaned[column] = ""
+        else:
+            previous = normalized
+    return cleaned
+
+
+def _duplicate_cell_key(value: str) -> str:
+    text = re.sub(r"[*_`~]", "", value).strip().lower()
+    text = re.sub(r"\s+", " ", text)
+    if len(text) < 8:
+        return ""
+    if not re.search(r"[a-zà-öø-ÿ]", text, flags=re.IGNORECASE):
+        return ""
+    return text
+
+
+def _is_table_line(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2
+
+
+def _is_table_separator(line: str) -> bool:
+    cells = _split_markdown_table_row(line)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
+
+
+def _split_markdown_table_row(line: str) -> list[str]:
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.replace("\\|", "|").strip() for cell in re.split(r"(?<!\\)\|", stripped)]
 
 
 def _lmstudio_first_model(base_url: str) -> str:

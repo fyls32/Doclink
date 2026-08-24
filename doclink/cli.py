@@ -45,6 +45,7 @@ def main() -> int:
     parser.add_argument("--table-mode", choices=("accurate", "fast", "off"), default="accurate")
     parser.add_argument("--table-structure-model", choices=("v1", "v2", "granite"), default="v1")
     parser.add_argument("--no-cell-matching", action="store_true", help="Disable table cell matching")
+    parser.add_argument("--no-clean-table-duplicates", action="store_true", help="Keep repeated text in adjacent Markdown table cells")
     parser.add_argument("--force-backend-text", action="store_true", help="Prefer backend text where available")
     parser.add_argument("--no-layout-orphans", action="store_true", help="Disable orphan layout text clusters")
     parser.add_argument("--layout-keep-empty", action="store_true", help="Keep empty layout clusters")
@@ -88,6 +89,7 @@ def main() -> int:
         table_mode=args.table_mode,
         table_structure_model=args.table_structure_model,
         table_cell_matching=not args.no_cell_matching,
+        clean_table_duplicates=not args.no_clean_table_duplicates,
         force_backend_text=args.force_backend_text,
         layout_create_orphan_clusters=not args.no_layout_orphans,
         layout_keep_empty_clusters=args.layout_keep_empty,

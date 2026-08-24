@@ -25,6 +25,7 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Tesseract PSM: leer = Standard; fuer Tesseract z. B. `3`, `6` oder `11`
 - Tabellenmodus: `accurate`, `fast` oder `off`
 - Tabellenmodell: `v1`, `v2` oder `granite`, falls deine Docling-Version das Modell unterstuetzt
+- Tabellen-Duplikate leeren: kopierten Text in direkten Nachbarspalten automatisch entfernen
 - Backend-Text erzwingen: vorhandenen PDF-Text bevorzugen, bei reinen Scans meist unwichtig
 - Verwaiste Textbloecke: Text behalten, der keinem Layoutbereich sicher zugeordnet wird
 - Leere Layoutbereiche: leere Layout-Cluster behalten; kann bei Formularen helfen, kann aber auch mehr Rauschen erzeugen
@@ -36,7 +37,7 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Scan-Bildtext: OCR-Text innerhalb von gescannten Seitenbildern beim Markdown-Export mitnehmen
 - Unterstriche escapen: Unterstriche fuer Markdown schuetzen; standardmaessig aus, damit Text natuerlicher bleibt
 
-Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high`, Tabellen `accurate`, Tabellenmodell `v1`, Zellen abgleichen zuerst `aus` testen. Wenn viel Text fehlt, probiere `OCR Scale` nacheinander mit `2.5`, `3`, `4` und `5`; der beste Wert haengt stark vom Scan ab. Wenn RapidOCR Text uebersieht, probiere `RapidOCR Score=0.3`.
+Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high`, Tabellen `accurate`, Tabellenmodell `v1`, Zellen abgleichen zuerst `aus` testen, Tabellen-Duplikate leeren `an`. Wenn viel Text fehlt, probiere `OCR Scale` nacheinander mit `2.5`, `3`, `4` und `5`; der beste Wert haengt stark vom Scan ab. Wenn RapidOCR Text uebersieht, probiere `RapidOCR Score=0.3`.
 
 Wenn Tabellen/Formulare schlecht sind, teste diese Reihenfolge:
 

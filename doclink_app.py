@@ -37,6 +37,7 @@ class DoclinkApp(tk.Tk):
         self.table_mode_var = tk.StringVar(value="accurate")
         self.table_structure_model_var = tk.StringVar(value="v1")
         self.table_cell_matching_var = tk.BooleanVar(value=False)
+        self.clean_table_duplicates_var = tk.BooleanVar(value=True)
         self.force_backend_text_var = tk.BooleanVar(value=False)
         self.layout_create_orphan_clusters_var = tk.BooleanVar(value=True)
         self.layout_keep_empty_clusters_var = tk.BooleanVar(value=False)
@@ -243,6 +244,7 @@ class DoclinkApp(tk.Tk):
         ttk.Checkbutton(docling_options, text="Verwaiste Textbloecke", variable=self.layout_create_orphan_clusters_var).grid(row=11, column=1, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="Leere Layoutbereiche", variable=self.layout_keep_empty_clusters_var).grid(row=11, column=2, sticky="w", pady=(8, 0))
         ttk.Checkbutton(docling_options, text="Layout-Zellzuordnung aus", variable=self.layout_skip_cell_assignment_var).grid(row=11, column=3, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Tabellen-Duplikate leeren", variable=self.clean_table_duplicates_var).grid(row=11, column=5, sticky="w", pady=(8, 0))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -391,6 +393,7 @@ class DoclinkApp(tk.Tk):
             table_mode=self.table_mode_var.get(),
             table_structure_model=self.table_structure_model_var.get(),
             table_cell_matching=self.table_cell_matching_var.get(),
+            clean_table_duplicates=self.clean_table_duplicates_var.get(),
             force_backend_text=self.force_backend_text_var.get(),
             layout_create_orphan_clusters=self.layout_create_orphan_clusters_var.get(),
             layout_keep_empty_clusters=self.layout_keep_empty_clusters_var.get(),
@@ -424,6 +427,7 @@ class DoclinkApp(tk.Tk):
             f"Qualitaet={options.quality}, OCR-Scale={options.ocr_scale or 'auto'}, "
             f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}/{options.table_structure_model}, "
             f"Zellen={'an' if options.table_cell_matching else 'aus'}, "
+            f"Duplikate={'an' if options.clean_table_duplicates else 'aus'}, "
             f"RapidOCR-Score={options.rapidocr_text_score or 'auto'}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
             f"LM Studio={options.lmstudio_base_url}, "
