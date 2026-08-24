@@ -711,14 +711,20 @@ def _docstrange_local_extractor(document_extractor_cls, options: ConversionOptio
     if options.docstrange_processing == "local_gpu":
         if "gpu" not in parameters:
             raise MissingDependencyError("This DocStrange version does not expose local GPU mode in its Python API.")
+        cuda_status = _torch_cuda_status()
+        if cuda_status and not cuda_status[0]:
+            raise MissingDependencyError(
+                "DocStrange local_gpu cannot start because PyTorch in this .venv reports "
+                f"'cuda available: False' ({cuda_status[1]}). Run install_docstrange_windows.bat again "
+                "or check_cuda_windows.bat for details."
+            )
         try:
             return document_extractor_cls(gpu=True)
         except Exception as exc:
             raise MissingDependencyError(
-                "DocStrange local_gpu could not start because CUDA is not available in this .venv. "
-                "Run install_docstrange_windows.bat again, check that it prints 'cuda available: True', "
-                "then restart Doclink. If it still prints False, update the NVIDIA driver or try another "
-                "PYTORCH_CUDA_INDEX such as https://download.pytorch.org/whl/cu124."
+                "PyTorch sees CUDA, but DocStrange local_gpu still could not start. "
+                f"Original error: {type(exc).__name__}: {exc}. "
+                "Run check_docstrange_windows.bat to see the full traceback."
             ) from exc
 
     if "cpu" in parameters:
@@ -728,6 +734,22 @@ def _docstrange_local_extractor(document_extractor_cls, options: ConversionOptio
         "This DocStrange version does not support local CPU mode in its Python API. "
         "DocStrange local mode currently requires local_gpu/CUDA, otherwise it would use cloud processing."
     )
+
+
+def _torch_cuda_status() -> tuple[bool, str] | None:
+    try:
+        import torch
+    except ImportError:
+        return None
+
+    try:
+        available = bool(torch.cuda.is_available())
+        cuda_build = torch.version.cuda or "no CUDA build"
+        gpu_name = torch.cuda.get_device_name(0) if available else "-"
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+    return available, f"torch {torch.__version__}, cuda build {cuda_build}, gpu {gpu_name}"
 
 
 def _call_docstrange_result(result, method_name: str) -> str:

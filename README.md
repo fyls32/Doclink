@@ -96,6 +96,7 @@ Der Modus `docstrange` nutzt die lokale DocStrange-Python-Bibliothek. Installier
 ```bat
 install_docstrange_windows.bat
 check_cuda_windows.bat
+check_docstrange_windows.bat
 ```
 
 Doclink nutzt DocStrange nur lokal; es wird kein Cloud-Modus und kein API-Key verwendet. Die aktuelle DocStrange-Python-Bibliothek bietet lokalen Modus vor allem ueber `local_gpu`/CUDA an. `local_cpu` bleibt als Option fuer Versionen sichtbar, die `cpu=True` wirklich unterstuetzen; sonst zeigt Doclink eine klare Fehlermeldung statt Cloud zu verwenden. Empfohlener Start fuer deine Steuer-/Tabellenscans:
@@ -108,7 +109,7 @@ DocStrange Ausgabe: html
 
 Die erzeugte Datei bleibt eine `.md`; bei Ausgabe `html` liegt der DocStrange-HTML-Inhalt innerhalb dieser Markdown-Datei.
 
-Wichtig: DocStrange local_gpu braucht CUDA-PyTorch in genau dieser `.venv`. `install_docstrange_windows.bat` installiert deshalb DocStrange und danach CUDA-faehiges PyTorch. `check_cuda_windows.bat` muss danach `cuda available: True` anzeigen. Falls nicht, kann vor dem Installer ein anderer PyTorch-Index gesetzt werden, z. B.:
+Wichtig: DocStrange local_gpu braucht CUDA-PyTorch in genau dieser `.venv`. `install_docstrange_windows.bat` installiert deshalb DocStrange und danach CUDA-faehiges PyTorch. Danach setzt der Installer NumPy wieder auf 1.x, weil einige Docling/DocStrange-Modelle aktuell mit NumPy 2.x abbrechen. `check_cuda_windows.bat` muss danach `cuda available: True` und `numpy: 1...` anzeigen. `check_docstrange_windows.bat` prueft zusaetzlich, ob DocStrange selbst mit `gpu=True` starten kann. Falls CUDA nicht sichtbar ist, kann vor dem Installer ein anderer PyTorch-Index gesetzt werden, z. B.:
 
 ```bat
 set PYTORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu124

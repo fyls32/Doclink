@@ -26,8 +26,13 @@ echo Index: %PYTORCH_CUDA_INDEX%
 python -m pip install --upgrade --force-reinstall torch torchvision torchaudio --index-url "%PYTORCH_CUDA_INDEX%"
 
 echo.
+echo Setze NumPy zurueck auf 1.x, weil Docling/DocStrange-Modelle aktuell kein NumPy 2.x moegen.
+python -m pip uninstall -y opencv-python
+python -m pip install --upgrade --force-reinstall "numpy<2.0.0" "opencv-python-headless<5"
+
+echo.
 echo Pruefe CUDA in dieser .venv...
-python -c "import torch; print('torch:', torch.__version__); print('cuda build:', torch.version.cuda); print('cuda available:', torch.cuda.is_available()); print('gpu:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else '-')"
+python -c "import numpy, torch; print('numpy:', numpy.__version__); print('torch:', torch.__version__); print('cuda build:', torch.version.cuda); print('cuda available:', torch.cuda.is_available()); print('gpu:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else '-')"
 
 echo.
 echo Fertig. Starte danach run_doclink_app.bat und waehle Markdown-Modus "docstrange".
