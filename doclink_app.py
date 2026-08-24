@@ -25,6 +25,7 @@ class DoclinkApp(tk.Tk):
         self.recursive_var = tk.BooleanVar(value=True)
         self.overwrite_var = tk.BooleanVar(value=True)
         self.markdown_engine_var = tk.StringVar(value="docling")
+        self.accelerator_var = tk.StringVar(value="auto")
         self.ocr_engine_var = tk.StringVar(value="rapidocr")
         self.ocr_mode_var = tk.StringVar(value="full_page")
         self.quality_var = tk.StringVar(value="balanced")
@@ -96,7 +97,17 @@ class DoclinkApp(tk.Tk):
         )
         markdown_engine.grid(row=1, column=0, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="OCR Engine").grid(row=0, column=1, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Beschleunigung").grid(row=0, column=1, sticky="w", pady=(0, 4))
+        accelerator = ttk.Combobox(
+            docling_options,
+            textvariable=self.accelerator_var,
+            state="readonly",
+            values=("auto", "cpu", "cuda"),
+            width=12,
+        )
+        accelerator.grid(row=1, column=1, sticky="ew", padx=(0, 10))
+
+        ttk.Label(docling_options, text="OCR Engine").grid(row=0, column=2, sticky="w", pady=(0, 4))
         engine = ttk.Combobox(
             docling_options,
             textvariable=self.ocr_engine_var,
@@ -104,9 +115,9 @@ class DoclinkApp(tk.Tk):
             values=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
             width=16,
         )
-        engine.grid(row=1, column=1, sticky="ew", padx=(0, 10))
+        engine.grid(row=1, column=2, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="OCR Modus").grid(row=0, column=2, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="OCR Modus").grid(row=0, column=3, sticky="w", pady=(0, 4))
         mode = ttk.Combobox(
             docling_options,
             textvariable=self.ocr_mode_var,
@@ -114,9 +125,9 @@ class DoclinkApp(tk.Tk):
             values=("full_page", "pdf_aware_layout_regions", "layout_regions", "default"),
             width=22,
         )
-        mode.grid(row=1, column=2, sticky="ew", padx=(0, 10))
+        mode.grid(row=1, column=3, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="Qualitaet").grid(row=0, column=3, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Qualitaet").grid(row=0, column=4, sticky="w", pady=(0, 4))
         quality = ttk.Combobox(
             docling_options,
             textvariable=self.quality_var,
@@ -124,12 +135,12 @@ class DoclinkApp(tk.Tk):
             values=("fast", "balanced", "high", "max"),
             width=12,
         )
-        quality.grid(row=1, column=3, sticky="ew", padx=(0, 10))
+        quality.grid(row=1, column=4, sticky="ew", padx=(0, 10))
 
-        ttk.Label(docling_options, text="Sprache").grid(row=0, column=4, sticky="w", pady=(0, 4))
-        ttk.Entry(docling_options, textvariable=self.ocr_lang_var, width=10).grid(row=1, column=4, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="Sprache").grid(row=0, column=5, sticky="w", pady=(0, 4))
+        ttk.Entry(docling_options, textvariable=self.ocr_lang_var, width=10).grid(row=1, column=5, sticky="ew")
 
-        ttk.Label(docling_options, text="Tabellen").grid(row=0, column=5, sticky="w", pady=(0, 4))
+        ttk.Label(docling_options, text="Tabellen").grid(row=2, column=4, sticky="w", pady=(8, 4))
         tables = ttk.Combobox(
             docling_options,
             textvariable=self.table_mode_var,
@@ -137,19 +148,19 @@ class DoclinkApp(tk.Tk):
             values=("accurate", "fast", "off"),
             width=12,
         )
-        tables.grid(row=1, column=5, sticky="ew")
+        tables.grid(row=3, column=4, sticky="ew", padx=(0, 10))
 
-        ttk.Checkbutton(docling_options, text="Zellen abgleichen", variable=self.table_cell_matching_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Checkbutton(docling_options, text="Bilder extrahieren", variable=self.extract_pictures_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
-        ttk.Checkbutton(docling_options, text="Bildtexte per VLM", variable=self.describe_pictures_var).grid(row=2, column=2, sticky="w", pady=(8, 0))
-        ttk.Checkbutton(docling_options, text="Diagramme extrahieren", variable=self.chart_extraction_var).grid(row=2, column=3, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Zellen abgleichen", variable=self.table_cell_matching_var).grid(row=3, column=5, sticky="w")
+        ttk.Checkbutton(docling_options, text="Bilder extrahieren", variable=self.extract_pictures_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Bildtexte per VLM", variable=self.describe_pictures_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(docling_options, text="Diagramme extrahieren", variable=self.chart_extraction_var).grid(row=2, column=2, sticky="w", pady=(8, 0))
 
-        ttk.Label(docling_options, text="LM Studio URL").grid(row=3, column=0, sticky="w", pady=(10, 4))
-        ttk.Entry(docling_options, textvariable=self.lmstudio_base_url_var).grid(row=4, column=0, columnspan=2, sticky="ew", padx=(0, 10))
-        ttk.Label(docling_options, text="LM Studio Modell").grid(row=3, column=2, sticky="w", pady=(10, 4))
-        ttk.Entry(docling_options, textvariable=self.lmstudio_model_var).grid(row=4, column=2, columnspan=2, sticky="ew", padx=(0, 10))
-        ttk.Label(docling_options, text="Max Tokens").grid(row=3, column=4, sticky="w", pady=(10, 4))
-        ttk.Entry(docling_options, textvariable=self.lmstudio_max_tokens_var, width=10).grid(row=4, column=4, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="LM Studio URL").grid(row=4, column=0, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_base_url_var).grid(row=5, column=0, columnspan=2, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="LM Studio Modell").grid(row=4, column=2, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_model_var).grid(row=5, column=2, columnspan=2, sticky="ew", padx=(0, 10))
+        ttk.Label(docling_options, text="Max Tokens").grid(row=4, column=4, sticky="w", pady=(10, 4))
+        ttk.Entry(docling_options, textvariable=self.lmstudio_max_tokens_var, width=10).grid(row=5, column=4, sticky="ew", padx=(0, 10))
 
         log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
         log_frame.grid(row=4, column=0, sticky="nsew")
@@ -284,6 +295,7 @@ class DoclinkApp(tk.Tk):
 
         return ConversionOptions(
             markdown_engine=self.markdown_engine_var.get(),
+            accelerator=self.accelerator_var.get(),
             ocr_engine=self.ocr_engine_var.get(),
             ocr_mode=self.ocr_mode_var.get(),
             quality=self.quality_var.get(),
@@ -306,7 +318,8 @@ class DoclinkApp(tk.Tk):
         chart_mode = "an" if options.chart_extraction else "aus"
         return (
             "Optionen: "
-            f"Markdown={options.markdown_engine}, Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
+            f"Markdown={options.markdown_engine}, Beschleunigung={options.accelerator}, "
+            f"Engine={options.ocr_engine}, Modus={options.ocr_mode}, Qualitaet={options.quality}, "
             f"Sprache={options.ocr_lang}, Tabellen={options.table_mode}, "
             f"Bilder={picture_mode}, VLM-Bildtext={vlm_mode}, Diagramme={chart_mode}, "
             f"LM Studio={options.lmstudio_base_url}\n\n"

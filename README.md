@@ -15,6 +15,7 @@ Die Markdown-Dateien landen standardmaessig im Unterordner `doclink_mds` des aus
 In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 
 - Markdown-Modus: `docling` oder `lmstudio`
+- Beschleunigung: `auto`, `cpu` oder `cuda`
 - OCR Engine: `rapidocr`, `tesseract_cli`, `easyocr`, `auto`, `none`
 - OCR Modus: `full_page`, `pdf_aware_layout_regions`, `layout_regions`, `default`
 - Qualitaet: `fast`, `balanced`, `high`, `max`
@@ -24,6 +25,8 @@ In der App koennen mehrere Docling-Optionen umgeschaltet werden:
 - Diagramme extrahieren
 
 Empfehlung fuer gescannte PDFs: `rapidocr`, `full_page`, Qualitaet `high` oder `max`, Tabellen `accurate`. Wenn leere Tabellenzellen falsch aufgefuellt werden, stelle Tabellen auf `off`; dann wird keine Markdown-Tabelle rekonstruiert, sondern der OCR-Text normal ausgegeben.
+
+Bei NVIDIA-GPU kann `Beschleunigung: cuda` Docling-Layout/OCR/Tabellenmodelle beschleunigen, sofern deine Python/PyTorch-Installation CUDA nutzen kann. `auto` laesst Docling selbst entscheiden, `cpu` erzwingt CPU.
 
 Der Modus `lmstudio` nutzt deinen lokalen LM-Studio-Server. Starte in LM Studio den lokalen Server, lade ein Vision-Modell und nutze in der App standardmaessig:
 

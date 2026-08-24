@@ -18,6 +18,7 @@ def main() -> int:
         default="docling",
         help="Markdown engine: Docling pipeline or local LM Studio vision model",
     )
+    parser.add_argument("--accelerator", choices=("auto", "cpu", "cuda"), default="auto", help="Docling accelerator device")
     parser.add_argument(
         "--ocr-engine",
         choices=("rapidocr", "tesseract_cli", "easyocr", "auto", "none"),
@@ -45,6 +46,7 @@ def main() -> int:
     output = args.output or args.input / "doclink_mds"
     options = ConversionOptions(
         markdown_engine=args.markdown_engine,
+        accelerator=args.accelerator,
         ocr_engine=args.ocr_engine,
         ocr_mode=args.ocr_mode,
         quality=args.quality,

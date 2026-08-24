@@ -90,6 +90,7 @@ class ConversionResult:
 @dataclass(frozen=True)
 class ConversionOptions:
     markdown_engine: str = "docling"
+    accelerator: str = "auto"
     ocr_engine: str = "rapidocr"
     ocr_mode: str = "full_page"
     quality: str = "balanced"
@@ -281,6 +282,7 @@ def _get_docling_converter(options: ConversionOptions):
 
         settings = _quality_settings(options)
         pipeline_options = PdfPipelineOptions()
+        pipeline_options.accelerator_options = _accelerator_options(options)
         pipeline_options.do_ocr = options.ocr_engine != "none"
         pipeline_options.do_table_structure = options.table_mode != "off"
         pipeline_options.images_scale = settings["scale"]
@@ -348,6 +350,17 @@ def _get_ocr_options(options: ConversionOptions, scale: float):
         return RapidOcrOptions(mode=mode, lang=[options.ocr_lang], scale=scale)
 
     raise MissingDependencyError(f"Unknown OCR engine: {options.ocr_engine}")
+
+
+def _accelerator_options(options: ConversionOptions):
+    from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+
+    devices = {
+        "auto": AcceleratorDevice.AUTO,
+        "cpu": AcceleratorDevice.CPU,
+        "cuda": AcceleratorDevice.CUDA,
+    }
+    return AcceleratorOptions(device=devices.get(options.accelerator, AcceleratorDevice.AUTO))
 
 
 def _ensure_tesseract_available() -> None:
