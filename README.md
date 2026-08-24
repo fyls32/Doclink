@@ -65,7 +65,7 @@ LM Studio Modell: leer lassen oder Modell-ID eintragen
 
 In diesem Modus rendert Doclink jede PDF-Seite als Bild und laesst das lokale Vision-Modell direkt Markdown erzeugen. Das ist oft besser fuer schwierige Tabellen, kann aber langsamer sein und haengt stark vom geladenen Modell ab.
 
-Der LM-Studio-Prompt ist bewusst streng: Das Modell soll nur sichtbaren Text transkribieren, nichts ergaenzen, leere Tabellenzellen leer lassen und relative Textgroessen ueber Markdown-Ueberschriften bzw. sichtbare Formatierung abbilden. Wenn eine Tabelle mit Markdown nicht sauber darstellbar ist, darf das Modell eine HTML-Tabelle mit leeren `<td></td>` Zellen ausgeben.
+Der LM-Studio-Prompt ist bewusst streng: Das Modell soll nur sichtbaren Text transkribieren, nichts ergaenzen, leere Tabellenzellen leer lassen und relative Textgroessen ueber Markdown-Ueberschriften bzw. sichtbare Formatierung abbilden. Tabellen und Formularraster werden im LM-Studio-Modus als HTML-Tabellen mit leeren `<td></td>` Zellen ausgegeben, weil das bei gescannten Formularen meist sauberer ist als Markdown-Pipe-Tabellen.
 
 Der Modus `mineru` nutzt die externe MinerU CLI. Installiere MinerU separat:
 
