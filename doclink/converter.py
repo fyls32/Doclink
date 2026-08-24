@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import html
 import json
+import os
 import re
 import zipfile
 from dataclasses import dataclass
@@ -13,20 +14,58 @@ from xml.etree import ElementTree
 
 
 SUPPORTED_EXTENSIONS = {
+    ".bmp",
     ".csv",
+    ".doc",
     ".docx",
+    ".epub",
+    ".jpeg",
+    ".jpg",
     ".htm",
     ".html",
     ".json",
     ".log",
     ".md",
+    ".odp",
+    ".ods",
     ".odt",
     ".pdf",
+    ".png",
+    ".ppt",
     ".pptx",
     ".rtf",
+    ".tif",
+    ".tiff",
     ".txt",
+    ".webp",
+    ".xls",
     ".xlsx",
     ".xml",
+}
+
+DOCLING_EXTENSIONS = {
+    ".bmp",
+    ".csv",
+    ".doc",
+    ".docx",
+    ".epub",
+    ".htm",
+    ".html",
+    ".jpeg",
+    ".jpg",
+    ".md",
+    ".odp",
+    ".ods",
+    ".odt",
+    ".pdf",
+    ".png",
+    ".ppt",
+    ".pptx",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".xls",
+    ".xlsx",
 }
 
 
@@ -91,6 +130,8 @@ def convert_folder(
                 result = ConversionResult(source, target, "created", "Markdown created")
         except MissingDependencyError as exc:
             result = ConversionResult(source, target, "skipped", str(exc))
+        except EmptyExtractionError as exc:
+            result = ConversionResult(source, target, "failed", str(exc))
         except Exception as exc:  # pragma: no cover - shown in the GUI log for user action.
             result = ConversionResult(source, target, "failed", f"{type(exc).__name__}: {exc}")
 
@@ -104,7 +145,20 @@ def convert_folder(
 def convert_file(source: Path) -> str:
     suffix = source.suffix.lower()
 
-    if suffix in {".txt", ".log", ".md"}:
+    body = ""
+    docling_error: Exception | None = None
+
+    if suffix in DOCLING_EXTENSIONS:
+        try:
+            body = _docling_to_markdown(source)
+        except MissingDependencyError as exc:
+            docling_error = exc
+        except Exception as exc:
+            docling_error = exc
+
+    if _has_content(body):
+        pass
+    elif suffix in {".txt", ".log", ".md"}:
         body = _read_text(source)
     elif suffix == ".csv":
         body = _csv_to_markdown(source)
@@ -126,8 +180,16 @@ def convert_file(source: Path) -> str:
         body = _pptx_to_markdown(source)
     elif suffix == ".odt":
         body = _odt_to_text(source)
+    elif isinstance(docling_error, MissingDependencyError):
+        raise docling_error
+    elif docling_error:
+        raise RuntimeError(f"Docling conversion failed: {docling_error}") from docling_error
     else:
         raise ValueError(f"Unsupported file type: {source.suffix}")
+
+    if not _has_content(body):
+        suffix_hint = " Scanned PDFs/images may need OCR support and a first run can take longer while models load."
+        raise EmptyExtractionError(f"No text content could be extracted from {source.name}.{suffix_hint}")
 
     title = source.stem.replace("_", " ").replace("-", " ").strip() or source.name
     source_name = source.name.replace("\\", "/")
@@ -136,6 +198,74 @@ def convert_file(source: Path) -> str:
 
 class MissingDependencyError(RuntimeError):
     pass
+
+
+class EmptyExtractionError(RuntimeError):
+    pass
+
+
+def _docling_to_markdown(path: Path) -> str:
+    try:
+        from docling.document_converter import DocumentConverter
+    except ImportError as exc:
+        raise MissingDependencyError("docling is missing; run install_windows.bat or pip install -r requirements.txt") from exc
+
+    converter = _get_docling_converter()
+    result = converter.convert(path)
+    return result.document.export_to_markdown()
+
+
+def _get_docling_converter():
+    if not hasattr(_get_docling_converter, "_converter"):
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
+        from docling.document_converter import DocumentConverter
+        from docling.document_converter import PdfFormatOption
+
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = True
+        pipeline_options.do_table_structure = True
+        pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
+        pipeline_options.ocr_options = _get_ocr_options()
+
+        _get_docling_converter._converter = DocumentConverter(  # type: ignore[attr-defined]
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+            }
+        )
+    return _get_docling_converter._converter  # type: ignore[attr-defined]
+
+
+def _get_ocr_options():
+    from docling.datamodel.pipeline_options import OcrMode
+
+    rapidocr_lang = os.getenv("DOCLINK_OCR_LANG", "de")
+    easyocr_langs = [lang.strip() for lang in os.getenv("DOCLINK_EASYOCR_LANGS", "de,en").split(",") if lang.strip()]
+
+    try:
+        from docling.datamodel.pipeline_options import RapidOcrOptions
+
+        return RapidOcrOptions(mode=OcrMode.FULL_PAGE, lang=[rapidocr_lang])
+    except Exception:
+        pass
+
+    try:
+        from docling.datamodel.pipeline_options import EasyOcrOptions
+
+        return EasyOcrOptions(mode=OcrMode.FULL_PAGE, lang=easyocr_langs)
+    except Exception as exc:
+        raise MissingDependencyError(
+            "OCR support is missing; run install_windows.bat again or install rapidocr-onnxruntime/easyocr."
+        ) from exc
+
+
+def _has_content(markdown: str) -> bool:
+    text = re.sub(r"!\[[^\]]*]\([^)]*\)", "", markdown)
+    text = re.sub(r"\bpage\s+\d+\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bslide\s+\d+\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"#+\s*", "", text)
+    text = re.sub(r"[_`|\\-]", " ", text)
+    return bool(re.search(r"[A-Za-z0-9À-ÖØ-öø-ÿ]{3,}", text))
 
 
 def _target_for(output_dir: Path, relative: Path, suffix: str, used_targets: set[Path]) -> Path:
@@ -241,7 +371,8 @@ def _pdf_to_text(path: Path) -> str:
     pages = []
     for index, page in enumerate(reader.pages, start=1):
         text = page.extract_text() or ""
-        pages.append(f"## Page {index}\n\n{text.strip()}")
+        if text.strip():
+            pages.append(f"## Page {index}\n\n{text.strip()}")
     return "\n\n".join(pages)
 
 

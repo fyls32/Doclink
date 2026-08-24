@@ -11,6 +11,8 @@ if %ERRORLEVEL%==0 (
 
 call ".venv\Scripts\activate.bat"
 python -m pip install --upgrade pip
+echo.
+echo Installiere Docling und Dokument-Abhaengigkeiten. Der erste Lauf kann ein paar Minuten dauern.
 python -m pip install -r requirements.txt
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\create_shortcut.ps1"

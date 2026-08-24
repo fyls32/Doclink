@@ -9,6 +9,8 @@ if not exist ".venv\Scripts\python.exe" (
 call ".venv\Scripts\activate.bat"
 python -m pip install --upgrade pyinstaller
 pyinstaller --noconfirm --windowed --name Doclink ^
+    --hidden-import=docling ^
+    --hidden-import=rapidocr_onnxruntime ^
     --hidden-import=pypdf ^
     --hidden-import=docx ^
     --hidden-import=bs4 ^
