@@ -1,0 +1,222 @@
+from __future__ import annotations
+
+import os
+import queue
+import subprocess
+import sys
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+from tkinter.scrolledtext import ScrolledText
+
+from doclink.converter import ConversionResult, convert_folder, list_supported_files
+
+
+class DoclinkApp(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.title("Doclink")
+        self.geometry("820x560")
+        self.minsize(680, 480)
+
+        self.input_var = tk.StringVar()
+        self.output_var = tk.StringVar()
+        self.recursive_var = tk.BooleanVar(value=True)
+        self.overwrite_var = tk.BooleanVar(value=True)
+        self.status_var = tk.StringVar(value="Bereit")
+        self.progress_var = tk.IntVar(value=0)
+
+        self._events: queue.Queue[tuple[str, object]] = queue.Queue()
+        self._worker: threading.Thread | None = None
+
+        self._build_ui()
+        self.after(100, self._drain_events)
+
+    def _build_ui(self) -> None:
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(3, weight=1)
+
+        header = ttk.Frame(self, padding=(16, 14, 16, 8))
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+
+        title = ttk.Label(header, text="Doclink Markdown-Erzeuger", font=("Segoe UI", 16, "bold"))
+        title.grid(row=0, column=0, sticky="w")
+        subtitle = ttk.Label(header, text="Ordner auswaehlen, Dokumente verarbeiten, Markdown-Dateien erstellen.")
+        subtitle.grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        form = ttk.Frame(self, padding=(16, 8))
+        form.grid(row=1, column=0, sticky="ew")
+        form.columnconfigure(1, weight=1)
+
+        ttk.Label(form, text="Dokumentenordner").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=6)
+        ttk.Entry(form, textvariable=self.input_var).grid(row=0, column=1, sticky="ew", pady=6)
+        ttk.Button(form, text="Auswaehlen", command=self._choose_input).grid(row=0, column=2, padx=(10, 0), pady=6)
+
+        ttk.Label(form, text="Markdown-Ziel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
+        ttk.Entry(form, textvariable=self.output_var).grid(row=1, column=1, sticky="ew", pady=6)
+        ttk.Button(form, text="Aendern", command=self._choose_output).grid(row=1, column=2, padx=(10, 0), pady=6)
+
+        options = ttk.Frame(self, padding=(16, 0, 16, 8))
+        options.grid(row=2, column=0, sticky="ew")
+        options.columnconfigure(4, weight=1)
+
+        ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(options, text="Vorhandene .md ueberschreiben", variable=self.overwrite_var).grid(row=0, column=1, sticky="w", padx=(18, 0))
+        self.start_button = ttk.Button(options, text="Verarbeiten", command=self._start)
+        self.start_button.grid(row=0, column=2, sticky="e", padx=(18, 0))
+        ttk.Button(options, text="Zielordner oeffnen", command=self._open_output).grid(row=0, column=3, sticky="e", padx=(10, 0))
+
+        log_frame = ttk.Frame(self, padding=(16, 6, 16, 8))
+        log_frame.grid(row=3, column=0, sticky="nsew")
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(0, weight=1)
+
+        self.log = ScrolledText(log_frame, height=14, wrap="word", state="disabled")
+        self.log.grid(row=0, column=0, sticky="nsew")
+
+        footer = ttk.Frame(self, padding=(16, 4, 16, 14))
+        footer.grid(row=4, column=0, sticky="ew")
+        footer.columnconfigure(0, weight=1)
+        ttk.Progressbar(footer, variable=self.progress_var, maximum=100).grid(row=0, column=0, sticky="ew", padx=(0, 12))
+        ttk.Label(footer, textvariable=self.status_var, width=28).grid(row=0, column=1, sticky="e")
+
+    def _choose_input(self) -> None:
+        folder = filedialog.askdirectory(title="Dokumentenordner auswaehlen")
+        if not folder:
+            return
+        self.input_var.set(folder)
+        if not self.output_var.get():
+            self.output_var.set(str(Path(folder) / "doclink_mds"))
+        self._preview_count()
+
+    def _choose_output(self) -> None:
+        folder = filedialog.askdirectory(title="Markdown-Zielordner auswaehlen")
+        if folder:
+            self.output_var.set(folder)
+
+    def _preview_count(self) -> None:
+        input_dir = Path(self.input_var.get())
+        output_dir = Path(self.output_var.get()) if self.output_var.get() else None
+        if input_dir.exists():
+            count = len(list_supported_files(input_dir, self.recursive_var.get(), output_dir))
+            self.status_var.set(f"{count} Dateien gefunden")
+
+    def _start(self) -> None:
+        input_text = self.input_var.get().strip()
+        output_text = self.output_var.get().strip()
+        if not input_text:
+            messagebox.showwarning("Doclink", "Bitte einen Dokumentenordner auswaehlen.")
+            return
+        if not output_text:
+            output_text = str(Path(input_text) / "doclink_mds")
+            self.output_var.set(output_text)
+
+        input_dir = Path(input_text)
+        output_dir = Path(output_text)
+        if not input_dir.exists() or not input_dir.is_dir():
+            messagebox.showerror("Doclink", "Der Dokumentenordner existiert nicht.")
+            return
+
+        self._clear_log()
+        files = list_supported_files(input_dir, self.recursive_var.get(), output_dir)
+        if not files:
+            self.status_var.set("Keine passenden Dateien")
+            self._append_log("Keine unterstuetzten Dateien gefunden.\n")
+            return
+
+        self.progress_var.set(0)
+        self.status_var.set("Verarbeitung laeuft")
+        self.start_button.configure(state="disabled")
+
+        self._worker = threading.Thread(target=self._run_conversion, args=(input_dir, output_dir, len(files)), daemon=True)
+        self._worker.start()
+
+    def _run_conversion(self, input_dir: Path, output_dir: Path, total: int) -> None:
+        processed = 0
+
+        def progress(result: ConversionResult) -> None:
+            nonlocal processed
+            processed += 1
+            self._events.put(("result", (processed, total, result)))
+
+        try:
+            results = convert_folder(
+                input_dir,
+                output_dir,
+                recursive=self.recursive_var.get(),
+                overwrite=self.overwrite_var.get(),
+                progress=progress,
+            )
+            self._events.put(("done", results))
+        except Exception as exc:
+            self._events.put(("error", exc))
+
+    def _drain_events(self) -> None:
+        try:
+            while True:
+                event, payload = self._events.get_nowait()
+                if event == "result":
+                    processed, total, result = payload  # type: ignore[misc]
+                    percent = int(processed / total * 100)
+                    self.progress_var.set(percent)
+                    target = result.target.name if result.target else "-"
+                    self._append_log(f"[{result.status}] {result.source.name} -> {target} ({result.message})\n")
+                    self.status_var.set(f"{processed}/{total} verarbeitet")
+                elif event == "done":
+                    results = payload  # type: ignore[assignment]
+                    created = sum(result.status == "created" for result in results)  # type: ignore[attr-defined]
+                    skipped = sum(result.status == "skipped" for result in results)  # type: ignore[attr-defined]
+                    failed = sum(result.status == "failed" for result in results)  # type: ignore[attr-defined]
+                    self.progress_var.set(100)
+                    self.status_var.set(f"{created} erstellt, {failed} Fehler")
+                    self._append_log(f"\nFertig. Erstellt: {created}, uebersprungen: {skipped}, Fehler: {failed}\n")
+                    self.start_button.configure(state="normal")
+                    if failed:
+                        messagebox.showwarning("Doclink", "Fertig, aber einige Dateien konnten nicht verarbeitet werden.")
+                    else:
+                        messagebox.showinfo("Doclink", "Markdown-Dateien wurden erstellt.")
+                elif event == "error":
+                    exc = payload
+                    self.status_var.set("Fehler")
+                    self._append_log(f"\nFehler: {exc}\n")
+                    self.start_button.configure(state="normal")
+                    messagebox.showerror("Doclink", str(exc))
+        except queue.Empty:
+            pass
+        self.after(100, self._drain_events)
+
+    def _append_log(self, text: str) -> None:
+        self.log.configure(state="normal")
+        self.log.insert("end", text)
+        self.log.see("end")
+        self.log.configure(state="disabled")
+
+    def _clear_log(self) -> None:
+        self.log.configure(state="normal")
+        self.log.delete("1.0", "end")
+        self.log.configure(state="disabled")
+
+    def _open_output(self) -> None:
+        output_text = self.output_var.get().strip()
+        if not output_text:
+            return
+        output_dir = Path(output_text)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if sys.platform.startswith("win"):
+            os.startfile(output_dir)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(output_dir)])
+        else:
+            subprocess.Popen(["xdg-open", str(output_dir)])
+
+
+def main() -> None:
+    app = DoclinkApp()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
